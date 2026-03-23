@@ -43,7 +43,21 @@ function canViewChannel(member, channel) {
   return channel.permissionsFor(member).has(PermissionFlagsBits.ViewChannel);
 }
 
-function buildVerifyEmbed(target, tipo) {
+function buildVerifyEmbed(target, tipo, sobre) {
+  if (tipo === "denegado") {
+    const rechazoLabel = verifyVariantLabels[sobre];
+    return new EmbedBuilder()
+      .setColor(Colors.Red)
+      .setTitle("Verificación")
+      .setDescription(`Se rechazó la petición de ${target}.`)
+      .addFields(
+        { name: "Tipo", value: "Denegado", inline: true },
+        { name: "Petición", value: rechazoLabel, inline: true },
+      )
+      .setFooter({ text: "Paradaisu" })
+      .setTimestamp();
+  }
+
   const label = verifyVariantLabels[tipo];
   return new EmbedBuilder()
     .setColor(Colors.Green)
@@ -58,7 +72,18 @@ function buildVerifyEmbed(target, tipo) {
     .setTimestamp();
 }
 
-function buildVerifyDmEmbed(tipo) {
+function buildVerifyDmEmbed(tipo, sobre) {
+  if (tipo === "denegado") {
+    const rechazoLabel = verifyVariantLabels[sobre];
+    return new EmbedBuilder()
+      .setColor(Colors.Red)
+      .setDescription(
+        `Tu petición como **${rechazoLabel}** fue rechazada.`,
+      )
+      .setFooter({ text: "Paradaisu" })
+      .setTimestamp();
+  }
+
   const label = verifyVariantLabels[tipo];
   return new EmbedBuilder()
     .setColor(Colors.Green)
@@ -85,6 +110,20 @@ export const verifyCommand = {
         .setName("tipo")
         .setDescription("Variante de verificación")
         .setRequired(true)
+        .addChoices(
+          { name: "Ally", value: "ally" },
+          { name: "Ally Leader", value: "allyleader" },
+          { name: "Paradaisu", value: "paradaisu" },
+          { name: "Denegado", value: "denegado" },
+        ),
+    )
+    .addStringOption((option) =>
+      option
+        .setName("sobre")
+        .setDescription(
+          "Obligatorio si tipo es Denegado: que peticion se rechaza",
+        )
+        .setRequired(false)
         .addChoices(
           { name: "Ally", value: "ally" },
           { name: "Ally Leader", value: "allyleader" },
@@ -136,6 +175,7 @@ export const verifyCommand = {
 
     const targetId = interaction.options.getString("usuario", true);
     const tipo = interaction.options.getString("tipo", true);
+    const sobre = interaction.options.getString("sobre");
 
     try {
       await interaction.deferReply({ ephemeral: true });
@@ -147,6 +187,14 @@ export const verifyCommand = {
         await interaction.editReply({
           content:
             "No encontré al usuario seleccionado. Vuelve a escribir `/verify` y elígelo desde el autocompletado.",
+        });
+        return;
+      }
+
+      if (tipo === "denegado" && !sobre) {
+        await interaction.editReply({
+          content:
+            "Si el tipo es **Denegado**, debes elegir **sobre** (Ally, Ally Leader o Paradaisu): es la petición que se rechaza.",
         });
         return;
       }
@@ -170,7 +218,7 @@ export const verifyCommand = {
       try {
         const dmRecipient = await interaction.client.users.fetch(target.id);
         await dmRecipient.send({
-          embeds: [buildVerifyDmEmbed(tipo)],
+          embeds: [buildVerifyDmEmbed(tipo, sobre)],
         });
       } catch (err) {
         console.error("[verify] No se pudo enviar DM al usuario:", err);
@@ -178,7 +226,7 @@ export const verifyCommand = {
       }
 
       const payload = {
-        embeds: [buildVerifyEmbed(target, tipo)],
+        embeds: [buildVerifyEmbed(target, tipo, sobre)],
       };
 
       if (dmFailed) {

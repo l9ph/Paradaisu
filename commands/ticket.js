@@ -34,9 +34,29 @@ function memberCanReviewTicket(member) {
   return ids.some((id) => member.roles.cache.has(id));
 }
 
+function slugifyChannelSegment(raw, fallback) {
+  const s = String(raw || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return s || String(fallback);
+}
+
 async function createWaitingChannel(guild, creator, embed, ticketTipo) {
   const tipoSlug = String(ticketTipo).toLowerCase().replace(/[^a-z0-9-]/g, "");
-  const channelName = `ticket-${tipoSlug}-${creator.id}`.slice(0, 100);
+  let member;
+  try {
+    member = await guild.members.fetch({ user: creator.id });
+  } catch {
+    member = null;
+  }
+  const displayRaw =
+    member?.displayName ?? member?.user?.username ?? creator.username;
+  const displaySlug = slugifyChannelSegment(displayRaw, creator.id);
+  const channelName = `ticket-${tipoSlug}-${displaySlug}`.slice(0, 100);
 
   const overwrites = [
     {
@@ -47,7 +67,13 @@ async function createWaitingChannel(guild, creator, embed, ticketTipo) {
     {
       id: creator.id,
       type: OverwriteType.Member,
-      deny: [PermissionFlagsBits.ViewChannel],
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.AttachFiles,
+        PermissionFlagsBits.EmbedLinks,
+      ],
     },
     {
       id: guild.members.me.id,
@@ -104,15 +130,14 @@ async function createWaitingChannel(guild, creator, embed, ticketTipo) {
 async function submitTicketToChannel(interaction, embed, ticketTipo) {
   await interaction.deferReply({ ephemeral: true });
   try {
-    await createWaitingChannel(
+    const channel = await createWaitingChannel(
       interaction.guild,
       interaction.user,
       embed,
       ticketTipo,
     );
     await interaction.editReply({
-      content:
-        "Tu ticket fue enviado al staff. No tienes acceso al canal interno; cuando lo revisen te llegará un mensaje directo.",
+      content: `Ticket creado. Tu canal: ${channel}`,
     });
   } catch (err) {
     console.error("[ticket] No se pudo crear el canal:", err);
@@ -126,9 +151,87 @@ async function submitTicketToChannel(interaction, embed, ticketTipo) {
 export const ticketCommand = {
   data: new SlashCommandBuilder()
     .setName("ticket")
-    .setDescription("Abre la encuesta de ticket (PvP, PvE, Ally)"),
+    .setDescription(
+      "Publica la encuesta de ticket en un canal (solo dueño o administradores).",
+    )
+    .setDMPermission(false)
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addChannelOption((option) =>
+      option
+        .setName("canal")
+        .setDescription("Canal donde publicar la encuesta")
+        .setRequired(true)
+        .addChannelTypes(
+          ChannelType.GuildText,
+          ChannelType.GuildAnnouncement,
+        ),
+    ),
 
   async execute(interaction) {
+    if (!interaction.inGuild()) {
+      await interaction.reply({
+        content: "Este comando solo se puede usar en un servidor.",
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const isOwner = interaction.guild.ownerId === interaction.user.id;
+    const isAdmin =
+      interaction.member?.permissions?.has(
+        PermissionFlagsBits.Administrator,
+      ) ?? false;
+
+    if (!isOwner && !isAdmin) {
+      await interaction.reply({
+        content:
+          "Solo el **dueño del servidor** o un **administrador** puede usar `/ticket`.",
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const target = interaction.options.getChannel("canal", true);
+
+    if (
+      !target ||
+      !("guild" in target) ||
+      target.guildId !== interaction.guild.id
+    ) {
+      await interaction.reply({
+        content: "Elige un canal de texto de **este** servidor.",
+        ephemeral: true,
+      });
+      return;
+    }
+
+    if (
+      target.type !== ChannelType.GuildText &&
+      target.type !== ChannelType.GuildAnnouncement
+    ) {
+      await interaction.reply({
+        content: "El canal tiene que ser de texto o anuncios.",
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const me = interaction.guild.members.me;
+    const perms = target.permissionsFor(me);
+    if (
+      !perms ||
+      !perms.has(PermissionFlagsBits.ViewChannel) ||
+      !perms.has(PermissionFlagsBits.SendMessages) ||
+      !perms.has(PermissionFlagsBits.EmbedLinks)
+    ) {
+      await interaction.reply({
+        content:
+          "No tengo permiso para **ver**, **enviar mensajes** y **insertar enlaces** en ese canal.",
+        ephemeral: true,
+      });
+      return;
+    }
+
     const embed = new EmbedBuilder()
       .setColor(Colors.Blurple)
       .setTitle("Encuesta")
@@ -149,7 +252,11 @@ export const ticketCommand = {
         .setStyle(ButtonStyle.Primary),
     );
 
-    await interaction.reply({ embeds: [embed], components: [row] });
+    await target.send({ embeds: [embed], components: [row] });
+    await interaction.reply({
+      content: `Encuesta publicada en ${target}.`,
+      ephemeral: true,
+    });
   },
 };
 
@@ -242,9 +349,116 @@ export async function handleTicketInteraction(interaction) {
     }
 
     if (interaction.customId === "ticket:ally") {
+      const row = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("ticket:ally:rol")
+          .setPlaceholder("Tipo de Ally")
+          .addOptions(
+            { label: "Ally", value: "ally" },
+            { label: "Ally Leader", value: "allyleader" },
+          ),
+      );
+      await interaction.reply({
+        ephemeral: true,
+        content: "Elige tu rol:",
+        components: [row],
+      });
+      return true;
+    }
+  }
+
+  if (interaction.isStringSelectMenu()) {
+    if (interaction.customId === "ticket:ally:rol") {
+      const rol = interaction.values[0];
+      if (rol === "allyleader") {
+        const modal = new ModalBuilder()
+          .setCustomId("ticket_modal:allyleader")
+          .setTitle("Cuestionario Ally Leader");
+
+        const ticketUser = new TextInputBuilder()
+          .setCustomId("ticket_user")
+          .setLabel("User")
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder("Tu usuario / nick / @")
+          .setRequired(true);
+
+        const allyGuild = new TextInputBuilder()
+          .setCustomId("ally_guild")
+          .setLabel("Tu guild")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true);
+
+        const mayorTop = new TextInputBuilder()
+          .setCustomId("mayor_top_pvp")
+          .setLabel("Mayor top alcanzado (PvP)")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true);
+
+        const region = new TextInputBuilder()
+          .setCustomId("region")
+          .setLabel("Región")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true);
+
+        modal.addComponents(
+          new ActionRowBuilder().addComponents(ticketUser),
+          new ActionRowBuilder().addComponents(allyGuild),
+          new ActionRowBuilder().addComponents(mayorTop),
+          new ActionRowBuilder().addComponents(region),
+        );
+
+        await interaction.showModal(modal);
+        return true;
+      }
+
+      const scopeRow = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("ticket:ally:alcance")
+          .setPlaceholder("¿Solo o en guild?")
+          .addOptions(
+            { label: "Solo", value: "solo" },
+            { label: "En guild", value: "guild" },
+          ),
+      );
+      await interaction.update({
+        content: "¿Juegas solo o en guild?",
+        components: [scopeRow],
+      });
+      return true;
+    }
+
+    if (interaction.customId === "ticket:ally:alcance") {
+      const alcance = interaction.values[0];
+      if (alcance === "solo") {
+        const modal = new ModalBuilder()
+          .setCustomId("ticket_modal:ally:solo")
+          .setTitle("Ally — solo");
+
+        const ticketUser = new TextInputBuilder()
+          .setCustomId("ticket_user")
+          .setLabel("User")
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder("Tu usuario / nick / @")
+          .setRequired(true);
+
+        const eloMax = new TextInputBuilder()
+          .setCustomId("elo_max")
+          .setLabel("Mayor elo alcanzado")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true);
+
+        modal.addComponents(
+          new ActionRowBuilder().addComponents(ticketUser),
+          new ActionRowBuilder().addComponents(eloMax),
+        );
+
+        await interaction.showModal(modal);
+        return true;
+      }
+
       const modal = new ModalBuilder()
-        .setCustomId("ticket_modal:ally")
-        .setTitle("Cuestionario Ally");
+        .setCustomId("ticket_modal:ally:guild")
+        .setTitle("Ally — en guild");
 
       const ticketUser = new TextInputBuilder()
         .setCustomId("ticket_user")
@@ -253,23 +467,28 @@ export async function handleTicketInteraction(interaction) {
         .setPlaceholder("Tu usuario / nick / @")
         .setRequired(true);
 
-      const info = new TextInputBuilder()
-        .setCustomId("ally_info")
-        .setLabel("Presentación / información")
-        .setStyle(TextInputStyle.Paragraph)
+      const guildName = new TextInputBuilder()
+        .setCustomId("guild_name")
+        .setLabel("¿De qué guild eres?")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+
+      const eloMax = new TextInputBuilder()
+        .setCustomId("elo_max")
+        .setLabel("Mayor elo alcanzado")
+        .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
       modal.addComponents(
         new ActionRowBuilder().addComponents(ticketUser),
-        new ActionRowBuilder().addComponents(info),
+        new ActionRowBuilder().addComponents(guildName),
+        new ActionRowBuilder().addComponents(eloMax),
       );
 
       await interaction.showModal(modal);
       return true;
     }
-  }
 
-  if (interaction.isStringSelectMenu()) {
     if (interaction.customId === "ticket:pvp:estilo") {
       const estilo = interaction.values[0];
       const modal = new ModalBuilder()
@@ -360,16 +579,57 @@ export async function handleTicketInteraction(interaction) {
       return true;
     }
 
-    if (customId === "ticket_modal:ally") {
+    if (customId === "ticket_modal:ally:solo") {
       const ticketUser = fields.getTextInputValue("ticket_user");
-      const info = fields.getTextInputValue("ally_info");
+      const eloMax = fields.getTextInputValue("elo_max");
 
-      const embed = summaryEmbed("Ticket — Ally", [
+      const embed = summaryEmbed("Ticket — Ally (solo)", [
+        { name: "Tipo", value: "Ally", inline: true },
+        { name: "Alcance", value: "Solo", inline: true },
         { name: "User", value: ticketUser.slice(0, 1024), inline: false },
-        { name: "Información", value: info.slice(0, 1024), inline: false },
+        { name: "Mayor elo alcanzado", value: eloMax.slice(0, 1024), inline: false },
       ]);
 
-      await submitTicketToChannel(interaction, embed, "ally");
+      await submitTicketToChannel(interaction, embed, "ally-solo");
+      return true;
+    }
+
+    if (customId === "ticket_modal:ally:guild") {
+      const ticketUser = fields.getTextInputValue("ticket_user");
+      const guildName = fields.getTextInputValue("guild_name");
+      const eloMax = fields.getTextInputValue("elo_max");
+
+      const embed = summaryEmbed("Ticket — Ally (guild)", [
+        { name: "Tipo", value: "Ally", inline: true },
+        { name: "Alcance", value: "En guild", inline: true },
+        { name: "User", value: ticketUser.slice(0, 1024), inline: false },
+        { name: "Guild", value: guildName.slice(0, 1024), inline: false },
+        { name: "Mayor elo alcanzado", value: eloMax.slice(0, 1024), inline: false },
+      ]);
+
+      await submitTicketToChannel(interaction, embed, "ally-guild");
+      return true;
+    }
+
+    if (customId === "ticket_modal:allyleader") {
+      const ticketUser = fields.getTextInputValue("ticket_user");
+      const allyGuild = fields.getTextInputValue("ally_guild");
+      const mayorTop = fields.getTextInputValue("mayor_top_pvp");
+      const region = fields.getTextInputValue("region");
+
+      const embed = summaryEmbed("Ticket — Ally Leader", [
+        { name: "Tipo", value: "Ally Leader", inline: true },
+        { name: "User", value: ticketUser.slice(0, 1024), inline: false },
+        { name: "Guild", value: allyGuild.slice(0, 1024), inline: false },
+        {
+          name: "Mayor top (PvP)",
+          value: mayorTop.slice(0, 1024),
+          inline: true,
+        },
+        { name: "Región", value: region.slice(0, 1024), inline: true },
+      ]);
+
+      await submitTicketToChannel(interaction, embed, "allyleader");
       return true;
     }
   }
