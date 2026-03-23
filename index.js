@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { Client, Events, GatewayIntentBits } from "discord.js";
+import { ticketCommand, handleTicketInteraction } from "./commands/ticket.js";
 import { verifyCommand } from "./commands/verify.js";
 
 const token = process.env.DISCORD_TOKEN;
@@ -8,9 +9,9 @@ if (!token) {
   process.exit(1);
 }
 
-const GUILD_ID = "";
+const GUILD_ID = "1459581098043510870";
 
-const commandModules = [verifyCommand];
+const commandModules = [verifyCommand, ticketCommand];
 const slashCommands = commandModules.map((command) => command.data.toJSON());
 const commandByName = new Map(
   slashCommands.map((data, index) => [data.name, commandModules[index]]),
@@ -71,6 +72,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (command?.autocomplete) await command.autocomplete(interaction);
     return;
   }
+
+  if (await handleTicketInteraction(interaction)) return;
 
   if (!interaction.isChatInputCommand()) return;
 
