@@ -6,6 +6,7 @@ import {
   Colors,
   EmbedBuilder,
   ModalBuilder,
+  OverwriteType,
   PermissionFlagsBits,
   SlashCommandBuilder,
   StringSelectMenuBuilder,
@@ -33,14 +34,24 @@ function memberCanReviewTicket(member) {
   return ids.some((id) => member.roles.cache.has(id));
 }
 
-async function createWaitingChannel(guild, creator, embed) {
+async function createWaitingChannel(guild, creator, embed, ticketTipo) {
+  const tipoSlug = String(ticketTipo).toLowerCase().replace(/[^a-z0-9-]/g, "");
+  const channelName = `ticket-${tipoSlug}-${creator.id}`.slice(0, 100);
+
   const overwrites = [
     {
       id: guild.roles.everyone.id,
+      type: OverwriteType.Role,
+      deny: [PermissionFlagsBits.ViewChannel],
+    },
+    {
+      id: creator.id,
+      type: OverwriteType.Member,
       deny: [PermissionFlagsBits.ViewChannel],
     },
     {
       id: guild.members.me.id,
+      type: OverwriteType.Member,
       allow: [
         PermissionFlagsBits.ViewChannel,
         PermissionFlagsBits.SendMessages,
@@ -54,6 +65,7 @@ async function createWaitingChannel(guild, creator, embed) {
   for (const roleId of TICKET_STAFF_ROLE_IDS.map((x) => String(x).trim()).filter(Boolean)) {
     overwrites.push({
       id: roleId,
+      type: OverwriteType.Role,
       allow: [
         PermissionFlagsBits.ViewChannel,
         PermissionFlagsBits.SendMessages,
@@ -63,7 +75,7 @@ async function createWaitingChannel(guild, creator, embed) {
   }
 
   const channelData = {
-    name: `espera-${creator.id}`,
+    name: channelName,
     type: ChannelType.GuildText,
     permissionOverwrites: overwrites,
   };
@@ -89,12 +101,18 @@ async function createWaitingChannel(guild, creator, embed) {
   return channel;
 }
 
-async function submitTicketToChannel(interaction, embed) {
+async function submitTicketToChannel(interaction, embed, ticketTipo) {
   await interaction.deferReply({ ephemeral: true });
   try {
-    const channel = await createWaitingChannel(interaction.guild, interaction.user, embed);
+    await createWaitingChannel(
+      interaction.guild,
+      interaction.user,
+      embed,
+      ticketTipo,
+    );
     await interaction.editReply({
-      content: `Ticket creado. Canal de espera: ${channel}`,
+      content:
+        "Tu ticket fue enviado al staff. No tienes acceso al canal interno; cuando lo revisen te llegará un mensaje directo.",
     });
   } catch (err) {
     console.error("[ticket] No se pudo crear el canal:", err);
@@ -315,7 +333,7 @@ export async function handleTicketInteraction(interaction) {
         { name: "Mayor Elo", value: elo.slice(0, 1024), inline: true },
       ]);
 
-      await submitTicketToChannel(interaction, embed);
+      await submitTicketToChannel(interaction, embed, "pvp");
       return true;
     }
 
@@ -338,7 +356,7 @@ export async function handleTicketInteraction(interaction) {
         },
       ]);
 
-      await submitTicketToChannel(interaction, embed);
+      await submitTicketToChannel(interaction, embed, "pve");
       return true;
     }
 
@@ -351,7 +369,7 @@ export async function handleTicketInteraction(interaction) {
         { name: "Información", value: info.slice(0, 1024), inline: false },
       ]);
 
-      await submitTicketToChannel(interaction, embed);
+      await submitTicketToChannel(interaction, embed, "ally");
       return true;
     }
   }
