@@ -108,8 +108,8 @@ async function createWaitingChannel(guild, creator, embed, ticketTipo) {
   const channel = await guild.channels.create(channelData);
 
   const staffEmbed = EmbedBuilder.from(embed).addFields({
-    name: "Enviado por (Discord)",
-    value: `${creator} (\`${creator.id}\`)`,
+    name: "Enviado por",
+    value: `Ticket creado por ${creator}`,
     inline: false,
   });
 
@@ -259,6 +259,24 @@ export const ticketCommand = {
 
 export async function handleTicketInteraction(interaction) {
   if (interaction.isButton()) {
+    if (interaction.customId === "ticket:delete-channel") {
+      if (!interaction.inGuild()) return true;
+      if (!memberCanUseTicketWaitButton(interaction.member)) {
+        await interaction.reply({
+          content:
+            "Solo los **administradores** del servidor pueden eliminar este canal.",
+          ephemeral: true,
+        });
+        return true;
+      }
+
+      await interaction.reply({
+        content: "Canal eliminado por administración.",
+      });
+      await interaction.channel.delete("Ticket finalizado y eliminado");
+      return true;
+    }
+
     if (interaction.customId.startsWith("ticket:reviewed:")) {
       if (!interaction.inGuild()) return true;
       const creatorId = interaction.customId.split(":")[2];
@@ -288,6 +306,26 @@ export async function handleTicketInteraction(interaction) {
       await interaction.update({
         embeds: [...interaction.message.embeds],
         components: [new ActionRowBuilder().addComponents(disabled)],
+      });
+
+      const closeEmbed = new EmbedBuilder()
+        .setColor(Colors.Orange)
+        .setTitle("Gestión del ticket")
+        .setDescription(
+          "Este ticket ya fue revisado. Si ya no se necesita, puedes eliminar este canal.",
+        )
+        .setTimestamp();
+
+      const closeRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("ticket:delete-channel")
+          .setLabel("Eliminar canal")
+          .setStyle(ButtonStyle.Danger),
+      );
+
+      await interaction.channel.send({
+        embeds: [closeEmbed],
+        components: [closeRow],
       });
       return true;
     }
@@ -582,8 +620,7 @@ export async function handleTicketInteraction(interaction) {
       const eloMax = fields.getTextInputValue("elo_max");
 
       const embed = summaryEmbed("Ticket — Ally (solo)", [
-        { name: "Tipo", value: "Ally", inline: true },
-        { name: "Alcance", value: "Solo", inline: true },
+        { name: "Tipo", value: "Ally - Solo", inline: true },
         { name: "User", value: ticketUser.slice(0, 1024), inline: false },
         { name: "Mayor elo alcanzado", value: eloMax.slice(0, 1024), inline: false },
       ]);
@@ -598,8 +635,7 @@ export async function handleTicketInteraction(interaction) {
       const eloMax = fields.getTextInputValue("elo_max");
 
       const embed = summaryEmbed("Ticket — Ally (guild)", [
-        { name: "Tipo", value: "Ally", inline: true },
-        { name: "Alcance", value: "En guild", inline: true },
+        { name: "Tipo", value: "Ally - Guild", inline: true },
         { name: "User", value: ticketUser.slice(0, 1024), inline: false },
         { name: "Guild", value: guildName.slice(0, 1024), inline: false },
         { name: "Mayor elo alcanzado", value: eloMax.slice(0, 1024), inline: false },
