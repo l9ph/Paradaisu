@@ -1,0 +1,3 @@
+# Paradaisu
+
+Discord bot - Paradaisu.
