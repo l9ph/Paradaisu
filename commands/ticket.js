@@ -116,7 +116,7 @@ async function createWaitingChannel(guild, creator, embed, ticketTipo) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`ticket:reviewed:${creator.id}`)
-      .setLabel("Revisado")
+      .setLabel("Leído")
       .setStyle(ButtonStyle.Success),
   );
 
@@ -291,7 +291,10 @@ export async function handleTicketInteraction(interaction) {
 
       try {
         const u = await interaction.client.users.fetch(creatorId);
-        await u.send({ content: "Tu ticket ha sido puesto en espera." });
+        await u.send({
+          content:
+            "Tu ticket fue leído, estás en espera de una respuesta del staff.",
+        });
       } catch (err) {
         console.error("[ticket] MD al usuario:", err);
         await interaction.reply({
@@ -312,7 +315,7 @@ export async function handleTicketInteraction(interaction) {
         .setColor(Colors.Orange)
         .setTitle("Gestión del ticket")
         .setDescription(
-          "Este ticket ya fue revisado. Si ya no se necesita, puedes eliminar este canal.",
+          "Este ticket ya fue leído. Si ya no se necesita, puedes eliminar este canal.",
         )
         .setTimestamp();
 
