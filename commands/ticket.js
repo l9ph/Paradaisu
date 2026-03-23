@@ -337,7 +337,7 @@ export async function handleTicketInteraction(interaction) {
       const row = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("ticket:pvp:estilo")
-          .setPlaceholder("Estilo de juego")
+          .setPlaceholder("Tipo pvp")
           .addOptions(
             { label: "PvP", value: "pvp" },
             { label: "Support", value: "support" },
@@ -346,7 +346,6 @@ export async function handleTicketInteraction(interaction) {
       );
       await interaction.reply({
         ephemeral: true,
-        content: "Elige tu estilo de juego:",
         components: [row],
       });
       return true;
@@ -359,9 +358,8 @@ export async function handleTicketInteraction(interaction) {
 
       const ticketUser = new TextInputBuilder()
         .setCustomId("ticket_user")
-        .setLabel("User")
+        .setLabel("User de roblox")
         .setStyle(TextInputStyle.Short)
-        .setPlaceholder("Tu usuario / nick / @")
         .setRequired(true);
 
       const jefes = new TextInputBuilder()
@@ -399,7 +397,6 @@ export async function handleTicketInteraction(interaction) {
       );
       await interaction.reply({
         ephemeral: true,
-        content: "Elige tu rol:",
         components: [row],
       });
       return true;
@@ -416,9 +413,8 @@ export async function handleTicketInteraction(interaction) {
 
         const ticketUser = new TextInputBuilder()
           .setCustomId("ticket_user")
-          .setLabel("User")
+          .setLabel("User de roblox")
           .setStyle(TextInputStyle.Short)
-          .setPlaceholder("Tu usuario / nick / @")
           .setRequired(true);
 
         const allyGuild = new TextInputBuilder()
@@ -453,14 +449,13 @@ export async function handleTicketInteraction(interaction) {
       const scopeRow = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("ticket:ally:alcance")
-          .setPlaceholder("¿Solo o en guild?")
+          .setPlaceholder("Solo / En guild")
           .addOptions(
             { label: "Solo", value: "solo" },
             { label: "En guild", value: "guild" },
           ),
       );
       await interaction.update({
-        content: "¿Juegas solo o en guild?",
         components: [scopeRow],
       });
       return true;
@@ -475,9 +470,8 @@ export async function handleTicketInteraction(interaction) {
 
         const ticketUser = new TextInputBuilder()
           .setCustomId("ticket_user")
-          .setLabel("User")
+          .setLabel("User de roblox")
           .setStyle(TextInputStyle.Short)
-          .setPlaceholder("Tu usuario / nick / @")
           .setRequired(true);
 
         const eloMax = new TextInputBuilder()
@@ -501,9 +495,8 @@ export async function handleTicketInteraction(interaction) {
 
       const ticketUser = new TextInputBuilder()
         .setCustomId("ticket_user")
-        .setLabel("User")
+        .setLabel("User de roblox")
         .setStyle(TextInputStyle.Short)
-        .setPlaceholder("Tu usuario / nick / @")
         .setRequired(true);
 
       const guildName = new TextInputBuilder()
@@ -536,9 +529,8 @@ export async function handleTicketInteraction(interaction) {
 
       const ticketUser = new TextInputBuilder()
         .setCustomId("ticket_user")
-        .setLabel("User")
+        .setLabel("User de roblox")
         .setStyle(TextInputStyle.Short)
-        .setPlaceholder("Tu usuario / nick / @")
         .setRequired(true);
 
       const guilds = new TextInputBuilder()
@@ -585,7 +577,7 @@ export async function handleTicketInteraction(interaction) {
       const elo = fields.getTextInputValue("elo");
 
       const embed = summaryEmbed("Ticket — PvP", [
-        { name: "User", value: ticketUser.slice(0, 1024), inline: false },
+        { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
         { name: "Estilo de juego", value: estiloLabel, inline: true },
         { name: "Guilds anteriores", value: guilds.slice(0, 1024), inline: false },
         { name: "Mayor Elo", value: elo.slice(0, 1024), inline: true },
@@ -601,7 +593,7 @@ export async function handleTicketInteraction(interaction) {
       const carrear = fields.getTextInputValue("carrear");
 
       const embed = summaryEmbed("Ticket — PvE", [
-        { name: "User", value: ticketUser.slice(0, 1024), inline: false },
+        { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
         {
           name: "¿Qué jefes dominas?",
           value: jefes.slice(0, 1024),
@@ -624,7 +616,7 @@ export async function handleTicketInteraction(interaction) {
 
       const embed = summaryEmbed("Ticket — Ally (solo)", [
         { name: "Tipo", value: "Ally - Solo", inline: true },
-        { name: "User", value: ticketUser.slice(0, 1024), inline: false },
+        { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
         { name: "Mayor elo alcanzado", value: eloMax.slice(0, 1024), inline: false },
       ]);
 
@@ -639,7 +631,7 @@ export async function handleTicketInteraction(interaction) {
 
       const embed = summaryEmbed("Ticket — Ally (guild)", [
         { name: "Tipo", value: "Ally - Guild", inline: true },
-        { name: "User", value: ticketUser.slice(0, 1024), inline: false },
+        { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
         { name: "Guild", value: guildName.slice(0, 1024), inline: false },
         { name: "Mayor elo alcanzado", value: eloMax.slice(0, 1024), inline: false },
       ]);
@@ -656,7 +648,7 @@ export async function handleTicketInteraction(interaction) {
 
       const embed = summaryEmbed("Ticket — Ally Leader", [
         { name: "Tipo", value: "Ally Leader", inline: true },
-        { name: "User", value: ticketUser.slice(0, 1024), inline: false },
+        { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
         { name: "Guild", value: allyGuild.slice(0, 1024), inline: false },
         {
           name: "Mayor top (PvP)",
