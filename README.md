@@ -1,3 +1,3 @@
 # Paradaisu
 
-Bot de Discord para la comunidad Paradaisu.
+Discord bot - Paradaisu.
