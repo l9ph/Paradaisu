@@ -26,12 +26,9 @@ function summaryEmbed(title, fields) {
     .setTimestamp();
 }
 
-function memberCanReviewTicket(member) {
+function memberCanUseTicketWaitButton(member) {
   if (!member) return false;
-  if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
-  const ids = TICKET_STAFF_ROLE_IDS.map((id) => String(id).trim()).filter(Boolean);
-  if (ids.length === 0) return false;
-  return ids.some((id) => member.roles.cache.has(id));
+  return member.permissions.has(PermissionFlagsBits.Administrator);
 }
 
 function slugifyChannelSegment(raw, fallback) {
@@ -265,9 +262,10 @@ export async function handleTicketInteraction(interaction) {
     if (interaction.customId.startsWith("ticket:reviewed:")) {
       if (!interaction.inGuild()) return true;
       const creatorId = interaction.customId.split(":")[2];
-      if (!memberCanReviewTicket(interaction.member)) {
+      if (!memberCanUseTicketWaitButton(interaction.member)) {
         await interaction.reply({
-          content: "No tienes permiso para marcar tickets como revisados.",
+          content:
+            "Solo los **administradores** del servidor pueden usar este botón.",
           ephemeral: true,
         });
         return true;
@@ -275,7 +273,7 @@ export async function handleTicketInteraction(interaction) {
 
       try {
         const u = await interaction.client.users.fetch(creatorId);
-        await u.send({ content: "Tu ticket ha sido revisado." });
+        await u.send({ content: "Tu ticket ha sido puesto en espera." });
       } catch (err) {
         console.error("[ticket] MD al usuario:", err);
         await interaction.reply({
