@@ -1,0 +1,81 @@
+import "dotenv/config";
+import { Client, Events, GatewayIntentBits } from "discord.js";
+import { verifyCommand } from "./commands/verify.js";
+
+const token = process.env.DISCORD_TOKEN;
+if (!token) {
+  console.error("Falta DISCORD_TOKEN en el archivo .env");
+  process.exit(1);
+}
+
+const GUILD_ID = "";
+
+const commandModules = [verifyCommand];
+const slashCommands = commandModules.map((command) => command.data.toJSON());
+const commandByName = new Map(
+  slashCommands.map((data, index) => [data.name, commandModules[index]]),
+);
+
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+});
+
+client.once(Events.ClientReady, async (readyClient) => {
+  console.log(`Conectado como ${readyClient.user.tag}`);
+
+  const guildIdConfigured = typeof GUILD_ID === "string" && GUILD_ID.trim() !== "";
+
+  if (guildIdConfigured) {
+    await readyClient.application.commands.set([]);
+    console.log(
+      "Comandos globales limpiados (solo se usarán los del servidor en GUILD_ID).",
+    );
+
+    try {
+      const guild = await readyClient.guilds.fetch(GUILD_ID.trim());
+      await guild.commands.set(slashCommands);
+      console.log(
+        `Slash commands sincronizados (guild, instantáneo): ${guild.name} (${GUILD_ID.trim()})`,
+      );
+    } catch (err) {
+      console.error(
+        `[GUILD_ID] No se pudo registrar comandos en el servidor ${GUILD_ID}:`,
+        err,
+      );
+    }
+  } else {
+    const guilds = await readyClient.guilds.fetch();
+    for (const [guildId] of guilds) {
+      try {
+        const guild = await readyClient.guilds.fetch(guildId);
+        await guild.commands.set([]);
+      } catch (err) {
+        console.error(
+          `[global-sync] No se pudo limpiar comandos de guild ${guildId}:`,
+          err,
+        );
+      }
+    }
+
+    await readyClient.application.commands.set(slashCommands);
+    console.log(
+      "Slash commands registrados globalmente (pueden tardar hasta ~1 h en aparecer). " +
+        "Para actualización instantánea, define `GUILD_ID` en `index.js`.",
+    );
+  }
+});
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isAutocomplete()) {
+    const command = commandByName.get(interaction.commandName);
+    if (command?.autocomplete) await command.autocomplete(interaction);
+    return;
+  }
+
+  if (!interaction.isChatInputCommand()) return;
+
+  const command = commandByName.get(interaction.commandName);
+  if (command?.execute) await command.execute(interaction);
+});
+
+client.login(token);
