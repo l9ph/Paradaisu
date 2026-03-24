@@ -74,6 +74,7 @@ async function createWaitingChannel(
         PermissionFlagsBits.ViewChannel,
         PermissionFlagsBits.ReadMessageHistory,
       ],
+      deny: [PermissionFlagsBits.SendMessages],
     },
     {
       id: guild.members.me.id,
@@ -96,6 +97,7 @@ async function createWaitingChannel(
         PermissionFlagsBits.ViewChannel,
         PermissionFlagsBits.ReadMessageHistory,
       ],
+      deny: [PermissionFlagsBits.SendMessages],
     });
   }
 
