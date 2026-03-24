@@ -322,11 +322,11 @@ export async function handleTicketInteraction(interaction) {
         }
 
         await interaction.channel.send({
-          content: `<@${creatorId}> tu ticket fue leído, ahora puedes escribir en este canal mientras esperas respuesta del staff.`,
+          content: `<@${creatorId}> tu ticket fue leído, ahora podrás ponerte de acuerdo con un Hoster.`,
         });
       } else {
         await interaction.channel.send({
-          content: `<@${creatorId}> tu ticket fue leído. Espera respuesta del staff.`,
+          content: `<@${creatorId}> tu ticket fue leído. Espera respuesta.`,
         });
       }
 
