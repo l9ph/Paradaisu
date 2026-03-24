@@ -14,7 +14,7 @@ import {
   TextInputStyle,
 } from "discord.js";
 
-const TICKET_STAFF_ROLE_IDS = [];
+const TICKET_STAFF_ROLE_IDS = ["1450309317889884270"];
 
 const TICKET_CATEGORY_ID = "";
 
