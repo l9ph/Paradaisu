@@ -392,6 +392,12 @@ export async function handleTicketInteraction(interaction) {
         .setPlaceholder("Indica cuál, ambos o no")
         .setRequired(true);
 
+      const region = new TextInputBuilder()
+        .setCustomId("region")
+        .setLabel("Región")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+
       const edad = new TextInputBuilder()
         .setCustomId("edad")
         .setLabel("Edad")
@@ -402,6 +408,7 @@ export async function handleTicketInteraction(interaction) {
         new ActionRowBuilder().addComponents(ticketUser),
         new ActionRowBuilder().addComponents(jefes),
         new ActionRowBuilder().addComponents(carrear),
+        new ActionRowBuilder().addComponents(region),
         new ActionRowBuilder().addComponents(edad),
       );
 
@@ -511,6 +518,12 @@ export async function handleTicketInteraction(interaction) {
           .setStyle(TextInputStyle.Short)
           .setRequired(true);
 
+        const region = new TextInputBuilder()
+          .setCustomId("region")
+          .setLabel("Región")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true);
+
         const edad = new TextInputBuilder()
           .setCustomId("edad")
           .setLabel("Edad")
@@ -520,6 +533,7 @@ export async function handleTicketInteraction(interaction) {
         modal.addComponents(
           new ActionRowBuilder().addComponents(ticketUser),
           new ActionRowBuilder().addComponents(eloMax),
+          new ActionRowBuilder().addComponents(region),
           new ActionRowBuilder().addComponents(edad),
         );
 
@@ -549,6 +563,12 @@ export async function handleTicketInteraction(interaction) {
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
+      const region = new TextInputBuilder()
+        .setCustomId("region")
+        .setLabel("Región")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+
       const edad = new TextInputBuilder()
         .setCustomId("edad")
         .setLabel("Edad")
@@ -559,6 +579,7 @@ export async function handleTicketInteraction(interaction) {
         new ActionRowBuilder().addComponents(ticketUser),
         new ActionRowBuilder().addComponents(guildName),
         new ActionRowBuilder().addComponents(eloMax),
+        new ActionRowBuilder().addComponents(region),
         new ActionRowBuilder().addComponents(edad),
       );
 
@@ -590,6 +611,12 @@ export async function handleTicketInteraction(interaction) {
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
+      const region = new TextInputBuilder()
+        .setCustomId("region")
+        .setLabel("Región")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+
       const edad = new TextInputBuilder()
         .setCustomId("edad")
         .setLabel("Edad")
@@ -600,6 +627,7 @@ export async function handleTicketInteraction(interaction) {
         new ActionRowBuilder().addComponents(ticketUser),
         new ActionRowBuilder().addComponents(guilds),
         new ActionRowBuilder().addComponents(elo),
+        new ActionRowBuilder().addComponents(region),
         new ActionRowBuilder().addComponents(edad),
       );
 
@@ -627,12 +655,14 @@ export async function handleTicketInteraction(interaction) {
       const ticketUser = fields.getTextInputValue("ticket_user");
       const guilds = fields.getTextInputValue("guilds");
       const elo = fields.getTextInputValue("elo");
+      const region = fields.getTextInputValue("region");
 
       const embed = summaryEmbed("Ticket — PvP", [
         { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
         { name: "Tipo pvp", value: estiloLabel, inline: true },
         { name: "Guilds anteriores", value: guilds.slice(0, 1024), inline: false },
         { name: "Mayor Elo", value: elo.slice(0, 1024), inline: true },
+        { name: "Región", value: region.slice(0, 1024), inline: true },
       ]);
 
       await submitTicketToChannel(interaction, embed, "pvp", estiloRaw === "pvp");
@@ -643,6 +673,7 @@ export async function handleTicketInteraction(interaction) {
       const ticketUser = fields.getTextInputValue("ticket_user");
       const jefes = fields.getTextInputValue("jefes");
       const carrear = fields.getTextInputValue("carrear");
+      const region = fields.getTextInputValue("region");
 
       const embed = summaryEmbed("Ticket — PvE", [
         { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
@@ -656,6 +687,7 @@ export async function handleTicketInteraction(interaction) {
           value: carrear.slice(0, 1024),
           inline: false,
         },
+        { name: "Región", value: region.slice(0, 1024), inline: true },
       ]);
 
       await submitTicketToChannel(interaction, embed, "pve");
@@ -665,11 +697,13 @@ export async function handleTicketInteraction(interaction) {
     if (customId === "ticket_modal:ally:solo") {
       const ticketUser = fields.getTextInputValue("ticket_user");
       const eloMax = fields.getTextInputValue("elo_max");
+      const region = fields.getTextInputValue("region");
 
       const embed = summaryEmbed("Ticket — Ally (solo)", [
         { name: "Tipo", value: "Ally - Solo", inline: true },
         { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
         { name: "Mayor elo alcanzado", value: eloMax.slice(0, 1024), inline: false },
+        { name: "Región", value: region.slice(0, 1024), inline: true },
       ]);
 
       await submitTicketToChannel(interaction, embed, "ally-solo");
@@ -680,12 +714,14 @@ export async function handleTicketInteraction(interaction) {
       const ticketUser = fields.getTextInputValue("ticket_user");
       const guildName = fields.getTextInputValue("guild_name");
       const eloMax = fields.getTextInputValue("elo_max");
+      const region = fields.getTextInputValue("region");
 
       const embed = summaryEmbed("Ticket — Ally (guild)", [
         { name: "Tipo", value: "Ally - Guild", inline: true },
         { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
         { name: "Guild", value: guildName.slice(0, 1024), inline: false },
         { name: "Mayor elo alcanzado", value: eloMax.slice(0, 1024), inline: false },
+        { name: "Región", value: region.slice(0, 1024), inline: true },
       ]);
 
       await submitTicketToChannel(interaction, embed, "ally-guild");
