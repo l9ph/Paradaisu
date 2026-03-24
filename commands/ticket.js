@@ -231,8 +231,10 @@ export const ticketCommand = {
 
     const embed = new EmbedBuilder()
       .setColor(Colors.Blurple)
-      .setTitle("Encuesta")
-      .setDescription("Elige una opción:");
+      .setTitle("Tryout")
+      .setDescription(
+        "Genera aquí tu ticket para TryOut y espera respuesta.\n\nElige entre estas opciones",
+      );
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -251,7 +253,7 @@ export const ticketCommand = {
 
     await target.send({ embeds: [embed], components: [row] });
     await interaction.reply({
-      content: `Encuesta publicada en ${target}.`,
+      content: `Prueba publicada en ${target}.`,
       ephemeral: true,
     });
   },
@@ -289,26 +291,24 @@ export async function handleTicketInteraction(interaction) {
         return true;
       }
 
-      try {
-        const u = await interaction.client.users.fetch(creatorId);
-        await u.send({
-          content:
-            "Tu ticket fue leído, estás en espera de una respuesta del staff.",
-        });
-      } catch (err) {
-        console.error("[ticket] MD al usuario:", err);
-        await interaction.reply({
-          content:
-            "No pude enviar el mensaje directo al usuario (MD cerrados o bloqueo).",
-          ephemeral: true,
-        });
-        return true;
-      }
-
       const disabled = ButtonBuilder.from(interaction.component).setDisabled(true);
       await interaction.update({
         embeds: [...interaction.message.embeds],
         components: [new ActionRowBuilder().addComponents(disabled)],
+      });
+
+      try {
+        await interaction.channel.permissionOverwrites.edit(creatorId, {
+          ViewChannel: true,
+          SendMessages: true,
+          ReadMessageHistory: true,
+        });
+      } catch (err) {
+        console.error("[ticket] No se pudieron actualizar permisos:", err);
+      }
+
+      await interaction.channel.send({
+        content: `<@${creatorId}> tu ticket fue leído, ahora puedes escribir en este canal mientras esperas respuesta del staff.`,
       });
 
       const closeEmbed = new EmbedBuilder()
@@ -354,7 +354,7 @@ export async function handleTicketInteraction(interaction) {
     if (interaction.customId === "ticket:pve") {
       const modal = new ModalBuilder()
         .setCustomId("ticket_modal:pve")
-        .setTitle("Cuestionario PvE");
+        .setTitle("Prueba para PvE");
 
       const ticketUser = new TextInputBuilder()
         .setCustomId("ticket_user")
@@ -409,7 +409,7 @@ export async function handleTicketInteraction(interaction) {
       if (rol === "allyleader") {
         const modal = new ModalBuilder()
           .setCustomId("ticket_modal:allyleader")
-          .setTitle("Cuestionario Ally Leader");
+          .setTitle("Prueba para Ally Leader");
 
         const ticketUser = new TextInputBuilder()
           .setCustomId("ticket_user")
@@ -466,7 +466,7 @@ export async function handleTicketInteraction(interaction) {
       if (alcance === "solo") {
         const modal = new ModalBuilder()
           .setCustomId("ticket_modal:ally:solo")
-          .setTitle("Ally — solo");
+          .setTitle("Prueba para Ally (solo)");
 
         const ticketUser = new TextInputBuilder()
           .setCustomId("ticket_user")
@@ -491,7 +491,7 @@ export async function handleTicketInteraction(interaction) {
 
       const modal = new ModalBuilder()
         .setCustomId("ticket_modal:ally:guild")
-        .setTitle("Ally — en guild");
+        .setTitle("Prueba para Ally (guild)");
 
       const ticketUser = new TextInputBuilder()
         .setCustomId("ticket_user")
@@ -525,7 +525,7 @@ export async function handleTicketInteraction(interaction) {
       const estilo = interaction.values[0];
       const modal = new ModalBuilder()
         .setCustomId(`ticket_modal:pvp:${estilo}`)
-        .setTitle("Cuestionario PvP");
+        .setTitle("Prueba para PvP");
 
       const ticketUser = new TextInputBuilder()
         .setCustomId("ticket_user")
@@ -578,7 +578,7 @@ export async function handleTicketInteraction(interaction) {
 
       const embed = summaryEmbed("Ticket — PvP", [
         { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
-        { name: "Estilo de juego", value: estiloLabel, inline: true },
+        { name: "Tipo pvp", value: estiloLabel, inline: true },
         { name: "Guilds anteriores", value: guilds.slice(0, 1024), inline: false },
         { name: "Mayor Elo", value: elo.slice(0, 1024), inline: true },
       ]);
