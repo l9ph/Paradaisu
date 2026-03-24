@@ -15,7 +15,7 @@ import {
 } from "discord.js";
 import {
   DEFAULT_EMBED_BANNER_URL,
-  userAvatarImageUrl,
+  userAvatarThumbnailUrl,
 } from "../embedDefaults.js";
 
 const TICKET_STAFF_ROLE_IDS = ["1450309317889884270"];
@@ -26,7 +26,7 @@ function summaryEmbed(title, fields, creatorUser) {
   return new EmbedBuilder()
     .setColor(Colors.Blurple)
     .setTitle(title)
-    .setImage(userAvatarImageUrl(creatorUser))
+    .setThumbnail(userAvatarThumbnailUrl(creatorUser))
     .addFields(fields)
     .setTimestamp();
 }
@@ -336,23 +336,6 @@ export async function handleTicketInteraction(interaction) {
         });
       }
 
-      let closeImageUrl = DEFAULT_EMBED_BANNER_URL;
-      try {
-        const creatorUser = await interaction.client.users.fetch(creatorId);
-        closeImageUrl = userAvatarImageUrl(creatorUser);
-      } catch {
-        /* banner por defecto */
-      }
-
-      const closeEmbed = new EmbedBuilder()
-        .setColor(Colors.Orange)
-        .setTitle("Gestión del ticket")
-        .setDescription(
-          "Este ticket ya fue leído. Si ya no se necesita, puedes eliminar este canal.",
-        )
-        .setImage(closeImageUrl)
-        .setTimestamp();
-
       const closeRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("ticket:delete-channel")
@@ -361,7 +344,8 @@ export async function handleTicketInteraction(interaction) {
       );
 
       await interaction.channel.send({
-        embeds: [closeEmbed],
+        content:
+          "**Gestión del ticket**\nEste ticket ya fue leído. Si ya no se necesita, puedes eliminar este canal.",
         components: [closeRow],
       });
       return true;

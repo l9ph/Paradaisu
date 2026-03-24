@@ -6,3 +6,9 @@ export function userAvatarImageUrl(user) {
   if (!user?.displayAvatarURL) return DEFAULT_EMBED_BANNER_URL;
   return user.displayAvatarURL({ size: 512, extension: "png", forceStatic: false });
 }
+
+/** Avatar pequeño para `setThumbnail` en embeds de ticket. */
+export function userAvatarThumbnailUrl(user) {
+  if (!user?.displayAvatarURL) return DEFAULT_EMBED_BANNER_URL;
+  return user.displayAvatarURL({ size: 128, extension: "png", forceStatic: false });
+}

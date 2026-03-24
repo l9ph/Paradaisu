@@ -1,10 +1,4 @@
-import {
-  Colors,
-  EmbedBuilder,
-  PermissionFlagsBits,
-  SlashCommandBuilder,
-} from "discord.js";
-import { userAvatarImageUrl } from "../embedDefaults.js";
+import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 
 const VERIFY_ROLE_IDS = {
   ally: [
@@ -44,57 +38,35 @@ function canViewChannel(member, channel) {
   return channel.permissionsFor(member).has(PermissionFlagsBits.ViewChannel);
 }
 
-function buildVerifyEmbed(target, tipo, sobre) {
+function verifyStaffMessage(target, tipo, sobre) {
   if (tipo === "denegado") {
     const rechazoLabel = verifyVariantLabels[sobre];
-    return new EmbedBuilder()
-      .setColor(Colors.Red)
-      .setTitle("Verificación")
-      .setDescription(`Se rechazó la petición de ${target}.`)
-      .setImage(userAvatarImageUrl(target))
-      .addFields(
-        { name: "Tipo", value: "Denegado", inline: true },
-        { name: "Petición", value: rechazoLabel, inline: true },
-      )
-      .setFooter({ text: "Paradaisu" })
-      .setTimestamp();
+    return (
+      `**Verificación**\n` +
+      `Se rechazó la petición de **${target.tag}**.\n` +
+      `• Tipo: Denegado\n` +
+      `• Petición: ${rechazoLabel}\n` +
+      `— Paradaisu`
+    );
   }
 
   const label = verifyVariantLabels[tipo];
-  return new EmbedBuilder()
-    .setColor(Colors.Green)
-    .setTitle("Verificación")
-    .setDescription(`Se verificó a ${target}.`)
-    .setImage(userAvatarImageUrl(target))
-    .addFields({
-      name: "Tipo",
-      value: label,
-      inline: true,
-    })
-    .setFooter({ text: "Paradaisu" })
-    .setTimestamp();
+  return (
+    `**Verificación**\n` +
+    `Se verificó a **${target.tag}**.\n` +
+    `• Tipo: ${label}\n` +
+    `— Paradaisu`
+  );
 }
 
-function buildVerifyDmEmbed(tipo, sobre, targetUser) {
+function verifyDmMessage(tipo, sobre) {
   if (tipo === "denegado") {
     const rechazoLabel = verifyVariantLabels[sobre];
-    return new EmbedBuilder()
-      .setColor(Colors.Red)
-      .setDescription(
-        `Tu petición como **${rechazoLabel}** fue rechazada.`,
-      )
-      .setImage(userAvatarImageUrl(targetUser))
-      .setFooter({ text: "Paradaisu" })
-      .setTimestamp();
+    return `Tu petición como **${rechazoLabel}** fue rechazada.\n— Paradaisu`;
   }
 
   const label = verifyVariantLabels[tipo];
-  return new EmbedBuilder()
-    .setColor(Colors.Green)
-    .setDescription(`Has sido verificado en **Paradaisu**, ahora eres **${label}**.`)
-    .setImage(userAvatarImageUrl(targetUser))
-    .setFooter({ text: "Paradaisu" })
-    .setTimestamp();
+  return `Has sido verificado en **Paradaisu**, ahora eres **${label}**.\n— Paradaisu`;
 }
 
 export const verifyCommand = {
@@ -223,22 +195,19 @@ export const verifyCommand = {
       try {
         const dmRecipient = await interaction.client.users.fetch(target.id);
         await dmRecipient.send({
-          embeds: [buildVerifyDmEmbed(tipo, sobre, target)],
+          content: verifyDmMessage(tipo, sobre),
         });
       } catch (err) {
         console.error("[verify] No se pudo enviar DM al usuario:", err);
         dmFailed = true;
       }
 
-      const payload = {
-        embeds: [buildVerifyEmbed(target, tipo, sobre)],
-      };
-
+      let content = verifyStaffMessage(target, tipo, sobre);
       if (dmFailed) {
-        payload.content = `No pude enviar DM a **${target.tag}**. En Discord: Ajustes de usuario -> Privacidad y seguridad -> activa **Permitir mensajes directos de los miembros del servidor** para **${interaction.guild.name}** (o abre tu el MD con el bot).`;
+        content += `\n\nNo pude enviar DM a **${target.tag}**. En Discord: Ajustes de usuario → Privacidad y seguridad → activa **Permitir mensajes directos de los miembros del servidor** para **${interaction.guild.name}** (o abre tú el MD con el bot).`;
       }
 
-      await interaction.editReply(payload);
+      await interaction.editReply({ content });
     } catch (err) {
       console.error("[verify] Error inesperado:", err);
       const msg = "Ocurrio un error inesperado al ejecutar el comando. Revisa la consola del bot.";
