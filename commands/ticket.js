@@ -16,7 +16,7 @@ import {
 
 const TICKET_STAFF_ROLE_IDS = ["1450309317889884270"];
 
-const TICKET_CATEGORY_ID = "";
+const TICKET_CATEGORY_ID = "1486054261778288650";
 
 function summaryEmbed(title, fields) {
   return new EmbedBuilder()
@@ -383,7 +383,7 @@ export async function handleTicketInteraction(interaction) {
 
       const jefes = new TextInputBuilder()
         .setCustomId("jefes")
-        .setLabel("¿Qué jefes dominas? (separados por comas)")
+        .setLabel("¿Qué jefes dominas?")
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(true);
 
