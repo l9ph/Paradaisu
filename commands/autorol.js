@@ -300,7 +300,7 @@ export const autorolCommand = {
       .setColor(Colors.Blurple)
       .setTitle("Auto roles")
       .setDescription(
-        "Elige **Colores** o **Bosses**. Solo tú verás el menú con opciones.",
+        "Elige tus roles.",
       );
 
     const row = new ActionRowBuilder().addComponents(
