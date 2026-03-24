@@ -42,7 +42,13 @@ function slugifyChannelSegment(raw, fallback) {
   return s || String(fallback);
 }
 
-async function createWaitingChannel(guild, creator, embed, ticketTipo) {
+async function createWaitingChannel(
+  guild,
+  creator,
+  embed,
+  ticketTipo,
+  allowCreatorAfterReviewed = false,
+) {
   const tipoSlug = String(ticketTipo).toLowerCase().replace(/[^a-z0-9-]/g, "");
   let member;
   try {
@@ -66,10 +72,7 @@ async function createWaitingChannel(guild, creator, embed, ticketTipo) {
       type: OverwriteType.Member,
       allow: [
         PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.SendMessages,
         PermissionFlagsBits.ReadMessageHistory,
-        PermissionFlagsBits.AttachFiles,
-        PermissionFlagsBits.EmbedLinks,
       ],
     },
     {
@@ -91,7 +94,6 @@ async function createWaitingChannel(guild, creator, embed, ticketTipo) {
       type: OverwriteType.Role,
       allow: [
         PermissionFlagsBits.ViewChannel,
-        PermissionFlagsBits.SendMessages,
         PermissionFlagsBits.ReadMessageHistory,
       ],
     });
@@ -115,7 +117,9 @@ async function createWaitingChannel(guild, creator, embed, ticketTipo) {
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`ticket:reviewed:${creator.id}`)
+      .setCustomId(
+        `ticket:reviewed:${creator.id}:${allowCreatorAfterReviewed ? "unlock" : "locked"}`,
+      )
       .setLabel("Leído")
       .setStyle(ButtonStyle.Success),
   );
@@ -124,7 +128,12 @@ async function createWaitingChannel(guild, creator, embed, ticketTipo) {
   return channel;
 }
 
-async function submitTicketToChannel(interaction, embed, ticketTipo) {
+async function submitTicketToChannel(
+  interaction,
+  embed,
+  ticketTipo,
+  allowCreatorAfterReviewed = false,
+) {
   await interaction.deferReply({ ephemeral: true });
   try {
     const channel = await createWaitingChannel(
@@ -132,6 +141,7 @@ async function submitTicketToChannel(interaction, embed, ticketTipo) {
       interaction.user,
       embed,
       ticketTipo,
+      allowCreatorAfterReviewed,
     );
     await interaction.editReply({
       content: `Ticket creado. Tu canal: ${channel}`,
@@ -281,7 +291,8 @@ export async function handleTicketInteraction(interaction) {
 
     if (interaction.customId.startsWith("ticket:reviewed:")) {
       if (!interaction.inGuild()) return true;
-      const creatorId = interaction.customId.split(":")[2];
+      const [, , creatorId, unlockMode] = interaction.customId.split(":");
+      const shouldUnlockCreator = unlockMode === "unlock";
       if (!memberCanUseTicketWaitButton(interaction.member)) {
         await interaction.reply({
           content:
@@ -297,19 +308,25 @@ export async function handleTicketInteraction(interaction) {
         components: [new ActionRowBuilder().addComponents(disabled)],
       });
 
-      try {
-        await interaction.channel.permissionOverwrites.edit(creatorId, {
-          ViewChannel: true,
-          SendMessages: true,
-          ReadMessageHistory: true,
-        });
-      } catch (err) {
-        console.error("[ticket] No se pudieron actualizar permisos:", err);
-      }
+      if (shouldUnlockCreator) {
+        try {
+          await interaction.channel.permissionOverwrites.edit(creatorId, {
+            ViewChannel: true,
+            SendMessages: true,
+            ReadMessageHistory: true,
+          });
+        } catch (err) {
+          console.error("[ticket] No se pudieron actualizar permisos:", err);
+        }
 
-      await interaction.channel.send({
-        content: `<@${creatorId}> tu ticket fue leído, ahora puedes escribir en este canal mientras esperas respuesta del staff.`,
-      });
+        await interaction.channel.send({
+          content: `<@${creatorId}> tu ticket fue leído, ahora puedes escribir en este canal mientras esperas respuesta del staff.`,
+        });
+      } else {
+        await interaction.channel.send({
+          content: `<@${creatorId}> tu ticket fue leído. Espera respuesta del staff.`,
+        });
+      }
 
       const closeEmbed = new EmbedBuilder()
         .setColor(Colors.Orange)
@@ -375,10 +392,17 @@ export async function handleTicketInteraction(interaction) {
         .setPlaceholder("Indica cuál, ambos o no")
         .setRequired(true);
 
+      const edad = new TextInputBuilder()
+        .setCustomId("edad")
+        .setLabel("Edad")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false);
+
       modal.addComponents(
         new ActionRowBuilder().addComponents(ticketUser),
         new ActionRowBuilder().addComponents(jefes),
         new ActionRowBuilder().addComponents(carrear),
+        new ActionRowBuilder().addComponents(edad),
       );
 
       await interaction.showModal(modal);
@@ -435,11 +459,18 @@ export async function handleTicketInteraction(interaction) {
           .setStyle(TextInputStyle.Short)
           .setRequired(true);
 
+        const edad = new TextInputBuilder()
+          .setCustomId("edad")
+          .setLabel("Edad")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(false);
+
         modal.addComponents(
           new ActionRowBuilder().addComponents(ticketUser),
           new ActionRowBuilder().addComponents(allyGuild),
           new ActionRowBuilder().addComponents(mayorTop),
           new ActionRowBuilder().addComponents(region),
+          new ActionRowBuilder().addComponents(edad),
         );
 
         await interaction.showModal(modal);
@@ -480,9 +511,16 @@ export async function handleTicketInteraction(interaction) {
           .setStyle(TextInputStyle.Short)
           .setRequired(true);
 
+        const edad = new TextInputBuilder()
+          .setCustomId("edad")
+          .setLabel("Edad")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(false);
+
         modal.addComponents(
           new ActionRowBuilder().addComponents(ticketUser),
           new ActionRowBuilder().addComponents(eloMax),
+          new ActionRowBuilder().addComponents(edad),
         );
 
         await interaction.showModal(modal);
@@ -511,10 +549,17 @@ export async function handleTicketInteraction(interaction) {
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
+      const edad = new TextInputBuilder()
+        .setCustomId("edad")
+        .setLabel("Edad")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false);
+
       modal.addComponents(
         new ActionRowBuilder().addComponents(ticketUser),
         new ActionRowBuilder().addComponents(guildName),
         new ActionRowBuilder().addComponents(eloMax),
+        new ActionRowBuilder().addComponents(edad),
       );
 
       await interaction.showModal(modal);
@@ -545,10 +590,17 @@ export async function handleTicketInteraction(interaction) {
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
+      const edad = new TextInputBuilder()
+        .setCustomId("edad")
+        .setLabel("Edad")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false);
+
       modal.addComponents(
         new ActionRowBuilder().addComponents(ticketUser),
         new ActionRowBuilder().addComponents(guilds),
         new ActionRowBuilder().addComponents(elo),
+        new ActionRowBuilder().addComponents(edad),
       );
 
       await interaction.showModal(modal);
@@ -583,7 +635,7 @@ export async function handleTicketInteraction(interaction) {
         { name: "Mayor Elo", value: elo.slice(0, 1024), inline: true },
       ]);
 
-      await submitTicketToChannel(interaction, embed, "pvp");
+      await submitTicketToChannel(interaction, embed, "pvp", estiloRaw === "pvp");
       return true;
     }
 
