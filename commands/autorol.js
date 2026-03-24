@@ -9,6 +9,7 @@ import {
   SlashCommandBuilder,
   StringSelectMenuBuilder,
 } from "discord.js";
+import { DEFAULT_EMBED_BANNER_URL } from "../embedDefaults.js";
 
 /** Emoji en el menú (ID). Rellena `roleId` cuando los tengas. */
 const COLOR_OPTIONS = [
@@ -301,7 +302,8 @@ export const autorolCommand = {
       .setTitle("Auto roles")
       .setDescription(
         "Elige tus roles.",
-      );
+      )
+      .setImage(DEFAULT_EMBED_BANNER_URL);
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()

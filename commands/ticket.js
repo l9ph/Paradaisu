@@ -13,15 +13,20 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from "discord.js";
+import {
+  DEFAULT_EMBED_BANNER_URL,
+  userAvatarImageUrl,
+} from "../embedDefaults.js";
 
 const TICKET_STAFF_ROLE_IDS = ["1450309317889884270"];
 
 const TICKET_CATEGORY_ID = "1486054261778288650";
 
-function summaryEmbed(title, fields) {
+function summaryEmbed(title, fields, creatorUser) {
   return new EmbedBuilder()
     .setColor(Colors.Blurple)
     .setTitle(title)
+    .setImage(userAvatarImageUrl(creatorUser))
     .addFields(fields)
     .setTimestamp();
 }
@@ -246,7 +251,8 @@ export const ticketCommand = {
       .setTitle("Tryout")
       .setDescription(
         "Genera aquí tu ticket para TryOut y espera respuesta.\n\nElige entre estas opciones",
-      );
+      )
+      .setImage(DEFAULT_EMBED_BANNER_URL);
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -330,12 +336,21 @@ export async function handleTicketInteraction(interaction) {
         });
       }
 
+      let closeImageUrl = DEFAULT_EMBED_BANNER_URL;
+      try {
+        const creatorUser = await interaction.client.users.fetch(creatorId);
+        closeImageUrl = userAvatarImageUrl(creatorUser);
+      } catch {
+        /* banner por defecto */
+      }
+
       const closeEmbed = new EmbedBuilder()
         .setColor(Colors.Orange)
         .setTitle("Gestión del ticket")
         .setDescription(
           "Este ticket ya fue leído. Si ya no se necesita, puedes eliminar este canal.",
         )
+        .setImage(closeImageUrl)
         .setTimestamp();
 
       const closeRow = new ActionRowBuilder().addComponents(
@@ -659,13 +674,17 @@ export async function handleTicketInteraction(interaction) {
       const elo = fields.getTextInputValue("elo");
       const region = fields.getTextInputValue("region");
 
-      const embed = summaryEmbed("Ticket — PvP", [
-        { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
-        { name: "Tipo pvp", value: estiloLabel, inline: true },
-        { name: "Guilds anteriores", value: guilds.slice(0, 1024), inline: false },
-        { name: "Mayor Elo", value: elo.slice(0, 1024), inline: true },
-        { name: "Región", value: region.slice(0, 1024), inline: true },
-      ]);
+      const embed = summaryEmbed(
+        "Ticket — PvP",
+        [
+          { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
+          { name: "Tipo pvp", value: estiloLabel, inline: true },
+          { name: "Guilds anteriores", value: guilds.slice(0, 1024), inline: false },
+          { name: "Mayor Elo", value: elo.slice(0, 1024), inline: true },
+          { name: "Región", value: region.slice(0, 1024), inline: true },
+        ],
+        interaction.user,
+      );
 
       await submitTicketToChannel(interaction, embed, "pvp", estiloRaw === "pvp");
       return true;
@@ -677,20 +696,24 @@ export async function handleTicketInteraction(interaction) {
       const carrear = fields.getTextInputValue("carrear");
       const region = fields.getTextInputValue("region");
 
-      const embed = summaryEmbed("Ticket — PvE", [
-        { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
-        {
-          name: "¿Qué jefes dominas?",
-          value: jefes.slice(0, 1024),
-          inline: false,
-        },
-        {
-          name: "Carrear Enmity / Elder Primadon",
-          value: carrear.slice(0, 1024),
-          inline: false,
-        },
-        { name: "Región", value: region.slice(0, 1024), inline: true },
-      ]);
+      const embed = summaryEmbed(
+        "Ticket — PvE",
+        [
+          { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
+          {
+            name: "¿Qué jefes dominas?",
+            value: jefes.slice(0, 1024),
+            inline: false,
+          },
+          {
+            name: "Carrear Enmity / Elder Primadon",
+            value: carrear.slice(0, 1024),
+            inline: false,
+          },
+          { name: "Región", value: region.slice(0, 1024), inline: true },
+        ],
+        interaction.user,
+      );
 
       await submitTicketToChannel(interaction, embed, "pve");
       return true;
@@ -701,12 +724,16 @@ export async function handleTicketInteraction(interaction) {
       const eloMax = fields.getTextInputValue("elo_max");
       const region = fields.getTextInputValue("region");
 
-      const embed = summaryEmbed("Ticket — Ally (solo)", [
-        { name: "Tipo", value: "Ally - Solo", inline: true },
-        { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
-        { name: "Mayor elo alcanzado", value: eloMax.slice(0, 1024), inline: false },
-        { name: "Región", value: region.slice(0, 1024), inline: true },
-      ]);
+      const embed = summaryEmbed(
+        "Ticket — Ally (solo)",
+        [
+          { name: "Tipo", value: "Ally - Solo", inline: true },
+          { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
+          { name: "Mayor elo alcanzado", value: eloMax.slice(0, 1024), inline: false },
+          { name: "Región", value: region.slice(0, 1024), inline: true },
+        ],
+        interaction.user,
+      );
 
       await submitTicketToChannel(interaction, embed, "ally-solo");
       return true;
@@ -718,13 +745,17 @@ export async function handleTicketInteraction(interaction) {
       const eloMax = fields.getTextInputValue("elo_max");
       const region = fields.getTextInputValue("region");
 
-      const embed = summaryEmbed("Ticket — Ally (guild)", [
-        { name: "Tipo", value: "Ally - Guild", inline: true },
-        { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
-        { name: "Guild", value: guildName.slice(0, 1024), inline: false },
-        { name: "Mayor elo alcanzado", value: eloMax.slice(0, 1024), inline: false },
-        { name: "Región", value: region.slice(0, 1024), inline: true },
-      ]);
+      const embed = summaryEmbed(
+        "Ticket — Ally (guild)",
+        [
+          { name: "Tipo", value: "Ally - Guild", inline: true },
+          { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
+          { name: "Guild", value: guildName.slice(0, 1024), inline: false },
+          { name: "Mayor elo alcanzado", value: eloMax.slice(0, 1024), inline: false },
+          { name: "Región", value: region.slice(0, 1024), inline: true },
+        ],
+        interaction.user,
+      );
 
       await submitTicketToChannel(interaction, embed, "ally-guild");
       return true;
@@ -736,17 +767,21 @@ export async function handleTicketInteraction(interaction) {
       const mayorTop = fields.getTextInputValue("mayor_top_pvp");
       const region = fields.getTextInputValue("region");
 
-      const embed = summaryEmbed("Ticket — Ally Leader", [
-        { name: "Tipo", value: "Ally Leader", inline: true },
-        { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
-        { name: "Guild", value: allyGuild.slice(0, 1024), inline: false },
-        {
-          name: "Mayor top (PvP)",
-          value: mayorTop.slice(0, 1024),
-          inline: true,
-        },
-        { name: "Región", value: region.slice(0, 1024), inline: true },
-      ]);
+      const embed = summaryEmbed(
+        "Ticket — Ally Leader",
+        [
+          { name: "Tipo", value: "Ally Leader", inline: true },
+          { name: "User de roblox", value: ticketUser.slice(0, 1024), inline: false },
+          { name: "Guild", value: allyGuild.slice(0, 1024), inline: false },
+          {
+            name: "Mayor top (PvP)",
+            value: mayorTop.slice(0, 1024),
+            inline: true,
+          },
+          { name: "Región", value: region.slice(0, 1024), inline: true },
+        ],
+        interaction.user,
+      );
 
       await submitTicketToChannel(interaction, embed, "allyleader");
       return true;

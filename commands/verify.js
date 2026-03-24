@@ -4,6 +4,7 @@ import {
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from "discord.js";
+import { userAvatarImageUrl } from "../embedDefaults.js";
 
 const VERIFY_ROLE_IDS = {
   ally: [
@@ -50,6 +51,7 @@ function buildVerifyEmbed(target, tipo, sobre) {
       .setColor(Colors.Red)
       .setTitle("Verificación")
       .setDescription(`Se rechazó la petición de ${target}.`)
+      .setImage(userAvatarImageUrl(target))
       .addFields(
         { name: "Tipo", value: "Denegado", inline: true },
         { name: "Petición", value: rechazoLabel, inline: true },
@@ -63,6 +65,7 @@ function buildVerifyEmbed(target, tipo, sobre) {
     .setColor(Colors.Green)
     .setTitle("Verificación")
     .setDescription(`Se verificó a ${target}.`)
+    .setImage(userAvatarImageUrl(target))
     .addFields({
       name: "Tipo",
       value: label,
@@ -72,7 +75,7 @@ function buildVerifyEmbed(target, tipo, sobre) {
     .setTimestamp();
 }
 
-function buildVerifyDmEmbed(tipo, sobre) {
+function buildVerifyDmEmbed(tipo, sobre, targetUser) {
   if (tipo === "denegado") {
     const rechazoLabel = verifyVariantLabels[sobre];
     return new EmbedBuilder()
@@ -80,6 +83,7 @@ function buildVerifyDmEmbed(tipo, sobre) {
       .setDescription(
         `Tu petición como **${rechazoLabel}** fue rechazada.`,
       )
+      .setImage(userAvatarImageUrl(targetUser))
       .setFooter({ text: "Paradaisu" })
       .setTimestamp();
   }
@@ -88,6 +92,7 @@ function buildVerifyDmEmbed(tipo, sobre) {
   return new EmbedBuilder()
     .setColor(Colors.Green)
     .setDescription(`Has sido verificado en **Paradaisu**, ahora eres **${label}**.`)
+    .setImage(userAvatarImageUrl(targetUser))
     .setFooter({ text: "Paradaisu" })
     .setTimestamp();
 }
@@ -218,7 +223,7 @@ export const verifyCommand = {
       try {
         const dmRecipient = await interaction.client.users.fetch(target.id);
         await dmRecipient.send({
-          embeds: [buildVerifyDmEmbed(tipo, sobre)],
+          embeds: [buildVerifyDmEmbed(tipo, sobre, target)],
         });
       } catch (err) {
         console.error("[verify] No se pudo enviar DM al usuario:", err);
