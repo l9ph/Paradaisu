@@ -23,6 +23,11 @@ async function fetchMemberSafe(guild, userId) {
   }
 }
 
+function reasonWithModerator(interaction, baseReason) {
+  const actor = interaction.user?.tag || interaction.user?.username || "unknown";
+  return `${baseReason} - ${actor}`;
+}
+
 export const banCommand = {
   data: new SlashCommandBuilder()
     .setName("ban")
@@ -52,8 +57,9 @@ export const banCommand = {
     }
 
     const target = interaction.options.getUser("user", true);
-    const reason =
+    const baseReason =
       interaction.options.getString("razon", false)?.trim() || "Sin razón";
+    const reason = reasonWithModerator(interaction, baseReason);
 
     if (targetIsSelfOrBot(interaction, target.id)) {
       await interaction.reply({
@@ -111,8 +117,9 @@ export const kickCommand = {
     }
 
     const target = interaction.options.getUser("user", true);
-    const reason =
+    const baseReason =
       interaction.options.getString("razon", false)?.trim() || "Sin razón";
+    const reason = reasonWithModerator(interaction, baseReason);
 
     if (targetIsSelfOrBot(interaction, target.id)) {
       await interaction.reply({
@@ -198,8 +205,9 @@ export const muteCommand = {
 
     const target = interaction.options.getUser("user", true);
     const durationKey = interaction.options.getString("duracion", true);
-    const reason =
+    const baseReason =
       interaction.options.getString("razon", false)?.trim() || "Sin razón";
+    const reason = reasonWithModerator(interaction, baseReason);
     const duration = MUTE_DURATIONS[durationKey];
 
     if (!duration) {
