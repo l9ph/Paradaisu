@@ -3,6 +3,7 @@ import { Client, Events, GatewayIntentBits } from "discord.js";
 import { MongoClient } from "mongodb";
 import { allyCommand, handleAllyInteraction } from "./commands/ally.js";
 import { bossCommand, handleBossInteraction } from "./commands/boss.js";
+import { banCommand, kickCommand, muteCommand } from "./commands/moderation.js";
 import {
   autorolCommand,
   handleAutorolInteraction,
@@ -24,6 +25,9 @@ const commandModules = [
   autorolCommand,
   allyCommand,
   bossCommand,
+  banCommand,
+  kickCommand,
+  muteCommand,
 ];
 const slashCommands = commandModules.map((command) => command.data.toJSON());
 const commandByName = new Map(
