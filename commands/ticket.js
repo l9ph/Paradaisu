@@ -5,6 +5,7 @@ import {
   ChannelType,
   Colors,
   EmbedBuilder,
+  MessageFlags,
   ModalBuilder,
   OverwriteType,
   PermissionFlagsBits,
@@ -141,7 +142,7 @@ async function submitTicketToChannel(
   ticketTipo,
   allowCreatorAfterReviewed = false,
 ) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
     const channel = await createWaitingChannel(
       interaction.guild,
@@ -185,7 +186,7 @@ export const ticketCommand = {
     if (!interaction.inGuild()) {
       await interaction.reply({
         content: "Este comando solo se puede usar en un servidor.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -200,7 +201,7 @@ export const ticketCommand = {
       await interaction.reply({
         content:
           "Solo el **dueño del servidor** o un **administrador** puede usar `/ticket`.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -214,7 +215,7 @@ export const ticketCommand = {
     ) {
       await interaction.reply({
         content: "Elige un canal de texto de **este** servidor.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -225,7 +226,7 @@ export const ticketCommand = {
     ) {
       await interaction.reply({
         content: "El canal tiene que ser de texto o anuncios.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -241,7 +242,7 @@ export const ticketCommand = {
       await interaction.reply({
         content:
           "No tengo permiso para **ver**, **enviar mensajes** y **insertar enlaces** en ese canal.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -272,7 +273,7 @@ export const ticketCommand = {
     await target.send({ embeds: [embed], components: [row] });
     await interaction.reply({
       content: `Prueba publicada en ${target}.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   },
 };
@@ -285,7 +286,7 @@ export async function handleTicketInteraction(interaction) {
         await interaction.reply({
           content:
             "Solo los **administradores** del servidor pueden eliminar este canal.",
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return true;
       }
@@ -305,7 +306,7 @@ export async function handleTicketInteraction(interaction) {
         await interaction.reply({
           content:
             "Solo los **administradores** del servidor pueden usar este botón.",
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return true;
       }
@@ -363,7 +364,7 @@ export async function handleTicketInteraction(interaction) {
           ),
       );
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         components: [row],
       });
       return true;
@@ -428,7 +429,7 @@ export async function handleTicketInteraction(interaction) {
           ),
       );
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         components: [row],
       });
       return true;
@@ -643,7 +644,7 @@ export async function handleTicketInteraction(interaction) {
     if (!interaction.inGuild()) {
       await interaction.reply({
         content: "Este formulario solo funciona en un servidor.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return true;
     }

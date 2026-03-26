@@ -1,4 +1,4 @@
-import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 
 const VERIFY_ROLE_IDS = {
   ally: [
@@ -145,7 +145,7 @@ export const verifyCommand = {
     if (!interaction.inGuild()) {
       await interaction.reply({
         content: "Este comando solo se puede usar en un servidor.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -155,7 +155,7 @@ export const verifyCommand = {
     const sobre = interaction.options.getString("sobre");
 
     try {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       let target;
       try {
@@ -215,7 +215,7 @@ export const verifyCommand = {
         if (interaction.deferred) {
           await interaction.editReply({ content: msg });
         } else {
-          await interaction.reply({ content: msg, ephemeral: true });
+          await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
         }
       } catch {
       }

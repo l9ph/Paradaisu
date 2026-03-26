@@ -5,6 +5,7 @@ import {
   ChannelType,
   Colors,
   EmbedBuilder,
+  MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
   StringSelectMenuBuilder,
@@ -123,7 +124,7 @@ async function assignConfigurableRoles({
 
   if (toAdd.length === 0) {
     await interaction.reply({
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
       content:
         missingConfig.length > 0
           ? "La opción que elegiste aún no tiene rol configurado en el bot. Avísale a un administrador."
@@ -139,14 +140,14 @@ async function assignConfigurableRoles({
     const role = interaction.guild.roles.cache.get(roleId.trim());
     if (!role) {
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         content: `El rol configurado para **${label}** no existe en el servidor.`,
       });
       return;
     }
     if (me.roles.highest.comparePositionTo(role) <= 0) {
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         content:
           "No puedo asignar ese rol: está por encima de mi rol más alto. Mueve el rol del bot arriba.",
       });
@@ -201,7 +202,7 @@ async function assignConfigurableRoles({
         : `Listo: te asigné el color **${opt.label}**.`;
 
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         content,
       });
       return;
@@ -216,13 +217,13 @@ async function assignConfigurableRoles({
     if (missingLabels)
       msg += `\n*(Algunas opciones elegidas aún no tienen rol: ${missingLabels})*`;
     await interaction.reply({
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
       content: msg,
     });
   } catch (err) {
     console.error("[autorol] Asignar roles:", err);
     await interaction.reply({
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
       content:
         "No pude asignar el rol. Comprueba que el bot tenga **Gestionar roles** y que su rol esté por encima de los roles a asignar.",
     });
@@ -252,7 +253,7 @@ export const autorolCommand = {
     if (!interaction.inGuild()) {
       await interaction.reply({
         content: "Este comando solo se puede usar en un servidor.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -265,7 +266,7 @@ export const autorolCommand = {
     ) {
       await interaction.reply({
         content: "Elige un canal de texto de **este** servidor.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -276,7 +277,7 @@ export const autorolCommand = {
     ) {
       await interaction.reply({
         content: "El canal tiene que ser de texto o anuncios.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -292,7 +293,7 @@ export const autorolCommand = {
       await interaction.reply({
         content:
           "No tengo permiso para **ver**, **enviar mensajes** e **insertar enlaces** en ese canal.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -318,7 +319,7 @@ export const autorolCommand = {
 
     await target.send({ embeds: [embed], components: [row] });
     await interaction.reply({
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
       content: `Panel enviado a ${target}.`,
     });
   },
@@ -329,7 +330,7 @@ export async function handleAutorolInteraction(interaction) {
     if (interaction.customId === "autorol:colors") {
       const row = new ActionRowBuilder().addComponents(buildColorSelectMenu());
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         components: [row],
       });
       return true;
@@ -337,7 +338,7 @@ export async function handleAutorolInteraction(interaction) {
     if (interaction.customId === "autorol:bosses") {
       const row = new ActionRowBuilder().addComponents(buildBossSelectMenu());
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         components: [row],
       });
       return true;
@@ -349,7 +350,7 @@ export async function handleAutorolInteraction(interaction) {
       const member = await ensureMember(interaction);
       if (!member) {
         await interaction.reply({
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
           content: "Esto solo funciona dentro de un servidor.",
         });
         return true;
@@ -368,7 +369,7 @@ export async function handleAutorolInteraction(interaction) {
       const member = await ensureMember(interaction);
       if (!member) {
         await interaction.reply({
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
           content: "Esto solo funciona dentro de un servidor.",
         });
         return true;

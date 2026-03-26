@@ -2,6 +2,7 @@ import {
   ActionRowBuilder,
   Colors,
   EmbedBuilder,
+  MessageFlags,
   ModalBuilder,
   PermissionFlagsBits,
   SlashCommandBuilder,
@@ -60,20 +61,19 @@ function normalize(input) {
 }
 
 function allyEmbedForChannel(guildName, entries) {
-  const description =
+  const fields =
     entries.length === 0
-      ? "No hay allys registrados por ahora."
-      : entries
-          .map(
-            (x, i) =>
-              `${i + 1}. **${x.guildName}**\nDiscord: ${x.discordLink}`,
-          )
-          .join("\n\n");
+      ? [{ name: "Sin allys", value: "No hay allys registrados.", inline: true }]
+      : entries.slice(0, 25).map((x) => ({
+          name: x.guildName.slice(0, 256),
+          value: x.discordLink.slice(0, 1024),
+          inline: true,
+        }));
 
   return new EmbedBuilder()
     .setColor(Colors.Blurple)
-    .setTitle("Allys")
-    .setDescription(description)
+    .setTitle("Paradaisu Allies")
+    .addFields(fields)
     .setImage(ALLY_EMBED_IMAGE_URL)
     .setFooter({ text: guildName })
     .setTimestamp();
@@ -156,7 +156,7 @@ export const allyCommand = {
   async execute(interaction) {
     if (!interaction.inGuild()) {
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         content: "Este comando solo se puede usar en un servidor.",
       });
       return;
@@ -164,7 +164,7 @@ export const allyCommand = {
 
     if (!mongoConfigOk()) {
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         content:
           "Falta configurar `MONGODB_URI` en `.env` para usar `/ally`.",
       });
@@ -176,13 +176,13 @@ export const allyCommand = {
       try {
         await createOrReplacePanelInCurrentChannel(interaction);
         await interaction.reply({
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
           content: "Panel de allys creado/actualizado en este canal.",
         });
       } catch (err) {
         console.error("[ally] embed:", err);
         await interaction.reply({
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
           content: "No pude crear/actualizar el panel de allys.",
         });
       }
@@ -225,7 +225,7 @@ export const allyCommand = {
 
         if (entries.length === 0) {
           await interaction.reply({
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
             content: "No hay allys registrados para eliminar.",
           });
           return;
@@ -247,13 +247,13 @@ export const allyCommand = {
         );
 
         await interaction.reply({
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
           components: [row],
         });
       } catch (err) {
         console.error("[ally] remove list:", err);
         await interaction.reply({
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
           content: "No pude cargar la lista de allys.",
         });
       }
@@ -266,7 +266,7 @@ export async function handleAllyInteraction(interaction) {
     if (!interaction.inGuild()) return true;
     if (!mongoConfigOk()) {
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         content: "Falta `MONGODB_URI` para guardar allys.",
       });
       return true;
@@ -281,7 +281,7 @@ export async function handleAllyInteraction(interaction) {
 
     if (!guildName || !discordLink) {
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         content: "Nombre guild y Link discord son obligatorios.",
       });
       return true;
@@ -298,7 +298,7 @@ export async function handleAllyInteraction(interaction) {
       });
       const refreshed = await refreshStoredAllyEmbed(interaction);
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         content: refreshed.ok
           ? `Ally agregado: **${guildName}**. Panel actualizado.`
           : `Ally agregado: **${guildName}**. Usa \`/ally embed\` para crear/revincular el panel.`,
@@ -306,7 +306,7 @@ export async function handleAllyInteraction(interaction) {
     } catch (err) {
       console.error("[ally] add:", err);
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         content: "No pude guardar el ally en MongoDB.",
       });
     }
@@ -320,7 +320,7 @@ export async function handleAllyInteraction(interaction) {
     if (!interaction.inGuild()) return true;
     if (!mongoConfigOk()) {
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         content: "Falta `MONGODB_URI` para eliminar allys.",
       });
       return true;
@@ -338,7 +338,7 @@ export async function handleAllyInteraction(interaction) {
 
     if (ids.length === 0) {
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         content: "No se recibieron IDs válidos para eliminar.",
       });
       return true;
@@ -352,7 +352,7 @@ export async function handleAllyInteraction(interaction) {
       });
       const refreshed = await refreshStoredAllyEmbed(interaction);
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         content: refreshed.ok
           ? `Allys eliminados: **${result.deletedCount}**. Panel actualizado.`
           : `Allys eliminados: **${result.deletedCount}**. Usa \`/ally embed\` para crear/revincular el panel.`,
@@ -360,7 +360,7 @@ export async function handleAllyInteraction(interaction) {
     } catch (err) {
       console.error("[ally] remove:", err);
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         content: "No pude eliminar los allys en MongoDB.",
       });
     }
