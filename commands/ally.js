@@ -1,5 +1,7 @@
 import {
   ActionRowBuilder,
+  Colors,
+  EmbedBuilder,
   ModalBuilder,
   PermissionFlagsBits,
   SlashCommandBuilder,
@@ -8,6 +10,7 @@ import {
   TextInputStyle,
 } from "discord.js";
 import { MongoClient, ObjectId } from "mongodb";
+import { DEFAULT_EMBED_BANNER_URL } from "../embedDefaults.js";
 
 const ALLY_COLLECTION = "ally_links";
 const modalCustomId = "ally:modal:add";
@@ -40,17 +43,41 @@ function normalize(input) {
   return String(input || "").trim();
 }
 
+function allyEmbedForChannel(guildName, entries) {
+  const description =
+    entries.length === 0
+      ? "No hay allys registrados por ahora."
+      : entries
+          .map(
+            (x, i) =>
+              `${i + 1}. **${x.guildName}**\nDiscord: ${x.discordLink}`,
+          )
+          .join("\n\n");
+
+  return new EmbedBuilder()
+    .setColor(Colors.Blurple)
+    .setTitle("Allys")
+    .setDescription(description)
+    .setImage(DEFAULT_EMBED_BANNER_URL)
+    .setFooter({ text: guildName })
+    .setTimestamp();
+}
+
 export const allyCommand = {
   data: new SlashCommandBuilder()
     .setName("ally")
-    .setDescription("Gestiona allys y publica la lista.")
+    .setDescription("Gestiona allys y publica la lista")
     .setDMPermission(false)
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .addSubcommand((sub) =>
-      sub.setName("add").setDescription("Agregar un ally"),
-    )
-    .addSubcommand((sub) =>
-      sub.setName("remove").setDescription("Eliminar uno o varios allys"),
+    .addStringOption((opt) =>
+      opt
+        .setName("accion")
+        .setDescription("Acción a ejecutar")
+        .setRequired(false)
+        .addChoices(
+          { name: "add", value: "add" },
+          { name: "remove", value: "remove" },
+        ),
     ),
 
   async execute(interaction) {
@@ -71,7 +98,31 @@ export const allyCommand = {
       return;
     }
 
-    const sub = interaction.options.getSubcommand(false);
+    const sub = interaction.options.getString("accion");
+
+    if (!sub) {
+      try {
+        const col = await getAllyCollection();
+        const entries = await col
+          .find({ guildId: interaction.guildId })
+          .sort({ guildName: 1 })
+          .toArray();
+
+        const embed = allyEmbedForChannel(interaction.guild.name, entries);
+        await interaction.channel.send({ embeds: [embed] });
+        await interaction.reply({
+          ephemeral: true,
+          content: "Lista de allys publicada en este canal.",
+        });
+      } catch (err) {
+        console.error("[ally] publicar:", err);
+        await interaction.reply({
+          ephemeral: true,
+          content: "No pude publicar la lista de allys.",
+        });
+      }
+      return;
+    }
 
     if (sub === "add") {
       const modal = new ModalBuilder()
