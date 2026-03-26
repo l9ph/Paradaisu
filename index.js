@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { Client, Events, GatewayIntentBits } from "discord.js";
+import { MongoClient } from "mongodb";
 import { allyCommand, handleAllyInteraction } from "./commands/ally.js";
 import {
   autorolCommand,
@@ -22,12 +23,34 @@ const commandByName = new Map(
   slashCommands.map((data, index) => [data.name, commandModules[index]]),
 );
 
+async function verifyMongoOnStartup() {
+  const uri = process.env.MONGODB_URI?.trim();
+  const dbName = process.env.MONGODB_DB?.trim() || "paradaisu";
+  if (!uri) {
+    console.warn("[mongo] MONGODB_URI no está configurado. /ally no funcionará.");
+    return;
+  }
+
+  let client;
+  try {
+    client = new MongoClient(uri);
+    await client.connect();
+    await client.db(dbName).command({ ping: 1 });
+    console.log(`[mongo] Conexión OK (${dbName}).`);
+  } catch (err) {
+    console.error("[mongo] No se pudo conectar al iniciar:", err);
+  } finally {
+    if (client) await client.close().catch(() => {});
+  }
+}
+
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
 });
 
 client.once(Events.ClientReady, async (readyClient) => {
   console.log(`Conectado como ${readyClient.user.tag}`);
+  await verifyMongoOnStartup();
 
   const guildIdConfigured = typeof GUILD_ID === "string" && GUILD_ID.trim() !== "";
 
