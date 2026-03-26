@@ -121,9 +121,13 @@ export const bossCommand = {
 
     const roleMention = `<@&${cfg.roleId}>`;
     const hostMention = `<@${interaction.user.id}>`;
-    const title = `${hostMention} esta hosteando ${cfg.label} entra a ${voiceChannel}`;
+    const title = `${cfg.label} Host`;
+    const description = `${hostMention} esta hosteando ${cfg.label} entra a ${voiceChannel}`;
 
-    const embed = new EmbedBuilder().setColor(2326507).setTitle(title);
+    const embed = new EmbedBuilder()
+      .setColor(2326507)
+      .setTitle(title)
+      .setDescription(description);
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`boss:end:${interaction.user.id}:${voiceChannel.id}`)
