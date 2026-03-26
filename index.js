@@ -2,6 +2,7 @@ import "dotenv/config";
 import { Client, Events, GatewayIntentBits } from "discord.js";
 import { MongoClient } from "mongodb";
 import { allyCommand, handleAllyInteraction } from "./commands/ally.js";
+import { bossCommand, handleBossInteraction } from "./commands/boss.js";
 import {
   autorolCommand,
   handleAutorolInteraction,
@@ -17,7 +18,13 @@ if (!token) {
 
 const GUILD_ID = "1133248786773327994";
 
-const commandModules = [verifyCommand, ticketCommand, autorolCommand, allyCommand];
+const commandModules = [
+  verifyCommand,
+  ticketCommand,
+  autorolCommand,
+  allyCommand,
+  bossCommand,
+];
 const slashCommands = commandModules.map((command) => command.data.toJSON());
 const commandByName = new Map(
   slashCommands.map((data, index) => [data.name, commandModules[index]]),
@@ -100,6 +107,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (command?.autocomplete) await command.autocomplete(interaction);
     return;
   }
+
+  if (await handleBossInteraction(interaction)) return;
 
   if (await handleAllyInteraction(interaction)) return;
 
