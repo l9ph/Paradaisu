@@ -64,7 +64,7 @@ function normalize(input) {
 function allyEmbedForChannel(guildName, entries) {
   const fields =
     entries.length === 0
-      ? [{ name: "Sin allys", value: "No hay allys registrados.", inline: true }]
+      ? [{ name: "Sin allies", value: "No hay allies registrados.", inline: true }]
       : entries.slice(0, 25).map((x) => ({
           name: x.guildName.slice(0, 256),
           value: x.discordLink.slice(0, 1024),
@@ -76,7 +76,6 @@ function allyEmbedForChannel(guildName, entries) {
     .setTitle("Paradaisu Allies")
     .addFields(fields)
     .setImage(ALLY_EMBED_IMAGE_URL)
-    .setFooter({ text: guildName })
     .setTimestamp();
 }
 
@@ -141,20 +140,20 @@ async function createOrReplacePanelInCurrentChannel(interaction) {
 export const allyCommand = {
   data: new SlashCommandBuilder()
     .setName("ally")
-    .setDescription("Gestiona allys y el panel")
+    .setDescription("Gestiona allies y el panel")
     .setDMPermission(false)
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addSubcommand((sub) =>
       sub.setName("add").setDescription("Agregar un ally"),
     )
     .addSubcommand((sub) =>
-      sub.setName("remove").setDescription("Eliminar uno o varios allys"),
+      sub.setName("remove").setDescription("Eliminar uno o varios allies"),
     )
     .addSubcommand((sub) =>
       sub.setName("edit").setDescription("Editar un ally existente"),
     )
     .addSubcommand((sub) =>
-      sub.setName("embed").setDescription("Crear o actualizar el panel de allys"),
+      sub.setName("embed").setDescription("Crear o actualizar el panel de allies"),
     ),
 
   async execute(interaction) {
@@ -181,13 +180,13 @@ export const allyCommand = {
         await createOrReplacePanelInCurrentChannel(interaction);
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
-          content: "Panel de allys creado/actualizado en este canal.",
+          content: "Panel de allies creado/actualizado en este canal.",
         });
       } catch (err) {
         console.error("[ally] embed:", err);
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
-          content: "No pude crear/actualizar el panel de allys.",
+          content: "No pude crear/actualizar el panel de allies.",
         });
       }
       return;
@@ -208,7 +207,7 @@ export const allyCommand = {
         .setCustomId("discord_link")
         .setLabel("Link discord")
         .setStyle(TextInputStyle.Short)
-        .setRequired(true);
+        .setRequired(false);
 
       modal.addComponents(
         new ActionRowBuilder().addComponents(guildName),
@@ -230,14 +229,14 @@ export const allyCommand = {
         if (entries.length === 0) {
           await interaction.reply({
             flags: MessageFlags.Ephemeral,
-            content: "No hay allys registrados para eliminar.",
+            content: "No hay allies registrados para eliminar.",
           });
           return;
         }
 
         const options = entries.slice(0, 25).map((x) => ({
           label: x.guildName.slice(0, 100),
-          description: x.discordLink.slice(0, 100),
+          description: (x.discordLink || "Sin link").slice(0, 100),
           value: String(x._id),
         }));
 
@@ -258,7 +257,7 @@ export const allyCommand = {
         console.error("[ally] remove list:", err);
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
-          content: "No pude cargar la lista de allys.",
+          content: "No pude cargar la lista de allies.",
         });
       }
     }
@@ -274,14 +273,14 @@ export const allyCommand = {
         if (entries.length === 0) {
           await interaction.reply({
             flags: MessageFlags.Ephemeral,
-            content: "No hay allys registrados para editar.",
+            content: "No hay allies registrados para editar.",
           });
           return;
         }
 
         const options = entries.slice(0, 25).map((x) => ({
           label: x.guildName.slice(0, 100),
-          description: x.discordLink.slice(0, 100),
+          description: (x.discordLink || "Sin link").slice(0, 100),
           value: String(x._id),
         }));
 
@@ -302,7 +301,7 @@ export const allyCommand = {
         console.error("[ally] edit list:", err);
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
-          content: "No pude cargar la lista de allys para editar.",
+          content: "No pude cargar la lista de allies para editar.",
         });
       }
       return;
@@ -316,7 +315,7 @@ export async function handleAllyInteraction(interaction) {
     if (!mongoConfigOk()) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Falta `MONGODB_URI` para guardar allys.",
+        content: "Falta `MONGODB_URI` para guardar allies.",
       });
       return true;
     }
@@ -328,10 +327,10 @@ export async function handleAllyInteraction(interaction) {
       interaction.fields.getTextInputValue("discord_link"),
     );
 
-    if (!guildName || !discordLink) {
+    if (!guildName) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Nombre guild y Link discord son obligatorios.",
+        content: "Nombre guild es obligatorio.",
       });
       return true;
     }
@@ -349,7 +348,7 @@ export async function handleAllyInteraction(interaction) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
         content: refreshed.ok
-          ? `Ally agregado: **${guildName}**. Panel actualizado.`
+          ? `Ally agregado: **${guildName}**.`
           : `Ally agregado: **${guildName}**. Usa \`/ally embed\` para crear/revincular el panel.`,
       });
     } catch (err) {
@@ -370,7 +369,7 @@ export async function handleAllyInteraction(interaction) {
     if (!mongoConfigOk()) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Falta `MONGODB_URI` para eliminar allys.",
+        content: "Falta `MONGODB_URI` para eliminar allies.",
       });
       return true;
     }
@@ -403,14 +402,14 @@ export async function handleAllyInteraction(interaction) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
         content: refreshed.ok
-          ? `Allys eliminados: **${result.deletedCount}**. Panel actualizado.`
-          : `Allys eliminados: **${result.deletedCount}**. Usa \`/ally embed\` para crear/revincular el panel.`,
+          ? `Allies eliminados: **${result.deletedCount}**.`
+          : `Allies eliminados: **${result.deletedCount}**. Usa \`/ally embed\` para crear/revincular el panel.`,
       });
     } catch (err) {
       console.error("[ally] remove:", err);
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "No pude eliminar los allys en MongoDB.",
+        content: "No pude eliminar los allies en MongoDB.",
       });
     }
     return true;
@@ -424,7 +423,7 @@ export async function handleAllyInteraction(interaction) {
     if (!mongoConfigOk()) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Falta `MONGODB_URI` para editar allys.",
+        content: "Falta `MONGODB_URI` para editar allies.",
       });
       return true;
     }
@@ -467,7 +466,7 @@ export async function handleAllyInteraction(interaction) {
         .setCustomId("discord_link")
         .setLabel("Link discord")
         .setStyle(TextInputStyle.Short)
-        .setRequired(true)
+        .setRequired(false)
         .setValue(String(doc.discordLink || "").slice(0, 100));
 
       modal.addComponents(
@@ -491,7 +490,7 @@ export async function handleAllyInteraction(interaction) {
     if (!mongoConfigOk()) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Falta `MONGODB_URI` para editar allys.",
+        content: "Falta `MONGODB_URI` para editar allies.",
       });
       return true;
     }
@@ -515,10 +514,10 @@ export async function handleAllyInteraction(interaction) {
       interaction.fields.getTextInputValue("discord_link"),
     );
 
-    if (!guildName || !discordLink) {
+    if (!guildName) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Nombre guild y Link discord son obligatorios.",
+        content: "Nombre guild es obligatorio.",
       });
       return true;
     }
