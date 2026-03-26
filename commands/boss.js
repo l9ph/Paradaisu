@@ -137,6 +137,7 @@ export const bossCommand = {
 
     await interaction.reply({
       content: `${roleMention}`,
+      allowedMentions: { roles: [cfg.roleId] },
       embeds: [embed],
       components: [row],
     });
