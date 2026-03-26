@@ -10,9 +10,12 @@ import {
   TextInputStyle,
 } from "discord.js";
 import { MongoClient, ObjectId } from "mongodb";
-import { DEFAULT_EMBED_BANNER_URL } from "../embedDefaults.js";
+
+const ALLY_EMBED_IMAGE_URL =
+  "https://images-ext-1.discordapp.net/external/N_CetSKMoMcw0pTvrHDAT13TtTuakN3xfyqno2PvPZo/https/cdn.nekotina.com/guilds/1133248786773327994/03c2ccd0-8540-4382-86c4-22e3bfd5bf9d.jpg?format=webp";
 
 const ALLY_COLLECTION = "ally_links";
+const ALLY_META_COLLECTION = "ally_panel_meta";
 const modalCustomId = "ally:modal:add";
 const removeSelectCustomId = "ally:select:remove";
 
@@ -39,6 +42,19 @@ async function getAllyCollection() {
   return mongoDb.collection(ALLY_COLLECTION);
 }
 
+async function getAllyMetaCollection() {
+  const uri = process.env.MONGODB_URI?.trim();
+  const dbName = process.env.MONGODB_DB?.trim() || "paradaisu";
+  if (!uri) throw new Error("MONGODB_URI_MISSING");
+
+  if (!mongoClient) mongoClient = new MongoClient(uri);
+  if (!mongoDb) {
+    await mongoClient.connect();
+    mongoDb = mongoClient.db(dbName);
+  }
+  return mongoDb.collection(ALLY_META_COLLECTION);
+}
+
 function normalize(input) {
   return String(input || "").trim();
 }
@@ -58,26 +74,83 @@ function allyEmbedForChannel(guildName, entries) {
     .setColor(Colors.Blurple)
     .setTitle("Allys")
     .setDescription(description)
-    .setImage(DEFAULT_EMBED_BANNER_URL)
+    .setImage(ALLY_EMBED_IMAGE_URL)
     .setFooter({ text: guildName })
     .setTimestamp();
+}
+
+async function getStoredPanelRef(guildId) {
+  const meta = await getAllyMetaCollection();
+  return meta.findOne({ guildId });
+}
+
+async function setStoredPanelRef(guildId, channelId, messageId) {
+  const meta = await getAllyMetaCollection();
+  await meta.updateOne(
+    { guildId },
+    {
+      $set: {
+        guildId,
+        channelId,
+        messageId,
+        updatedAt: new Date(),
+      },
+    },
+    { upsert: true },
+  );
+}
+
+async function refreshStoredAllyEmbed(interaction) {
+  const ref = await getStoredPanelRef(interaction.guildId);
+  if (!ref?.channelId || !ref?.messageId) return { ok: false, reason: "missing_ref" };
+
+  const col = await getAllyCollection();
+  const entries = await col
+    .find({ guildId: interaction.guildId })
+    .sort({ guildName: 1 })
+    .toArray();
+  const embed = allyEmbedForChannel(interaction.guild.name, entries);
+
+  try {
+    const channel = await interaction.guild.channels.fetch(ref.channelId);
+    if (!channel?.isTextBased?.()) return { ok: false, reason: "bad_channel" };
+    const msg = await channel.messages.fetch(ref.messageId);
+    await msg.edit({ embeds: [embed] });
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "not_found" };
+  }
+}
+
+async function createOrReplacePanelInCurrentChannel(interaction) {
+  const channel = interaction.channel;
+  if (!channel?.isTextBased?.()) throw new Error("CHANNEL_NOT_TEXT");
+
+  const col = await getAllyCollection();
+  const entries = await col
+    .find({ guildId: interaction.guildId })
+    .sort({ guildName: 1 })
+    .toArray();
+  const embed = allyEmbedForChannel(interaction.guild.name, entries);
+
+  const sent = await channel.send({ embeds: [embed] });
+  await setStoredPanelRef(interaction.guildId, channel.id, sent.id);
 }
 
 export const allyCommand = {
   data: new SlashCommandBuilder()
     .setName("ally")
-    .setDescription("Gestiona allys y publica la lista")
+    .setDescription("Gestiona allys y el panel")
     .setDMPermission(false)
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .addStringOption((opt) =>
-      opt
-        .setName("accion")
-        .setDescription("Acción a ejecutar")
-        .setRequired(false)
-        .addChoices(
-          { name: "add", value: "add" },
-          { name: "remove", value: "remove" },
-        ),
+    .addSubcommand((sub) =>
+      sub.setName("add").setDescription("Agregar un ally"),
+    )
+    .addSubcommand((sub) =>
+      sub.setName("remove").setDescription("Eliminar uno o varios allys"),
+    )
+    .addSubcommand((sub) =>
+      sub.setName("embed").setDescription("Crear o actualizar el panel de allys"),
     ),
 
   async execute(interaction) {
@@ -98,27 +171,19 @@ export const allyCommand = {
       return;
     }
 
-    const sub = interaction.options.getString("accion");
-
-    if (!sub) {
+    const sub = interaction.options.getSubcommand(true);
+    if (sub === "embed") {
       try {
-        const col = await getAllyCollection();
-        const entries = await col
-          .find({ guildId: interaction.guildId })
-          .sort({ guildName: 1 })
-          .toArray();
-
-        const embed = allyEmbedForChannel(interaction.guild.name, entries);
-        await interaction.channel.send({ embeds: [embed] });
+        await createOrReplacePanelInCurrentChannel(interaction);
         await interaction.reply({
           ephemeral: true,
-          content: "Lista de allys publicada en este canal.",
+          content: "Panel de allys creado/actualizado en este canal.",
         });
       } catch (err) {
-        console.error("[ally] publicar:", err);
+        console.error("[ally] embed:", err);
         await interaction.reply({
           ephemeral: true,
-          content: "No pude publicar la lista de allys.",
+          content: "No pude crear/actualizar el panel de allys.",
         });
       }
       return;
@@ -231,9 +296,12 @@ export async function handleAllyInteraction(interaction) {
         createdBy: interaction.user.id,
         createdAt: new Date(),
       });
+      const refreshed = await refreshStoredAllyEmbed(interaction);
       await interaction.reply({
         ephemeral: true,
-        content: `Ally agregado: **${guildName}**.`,
+        content: refreshed.ok
+          ? `Ally agregado: **${guildName}**. Panel actualizado.`
+          : `Ally agregado: **${guildName}**. Usa \`/ally embed\` para crear/revincular el panel.`,
       });
     } catch (err) {
       console.error("[ally] add:", err);
@@ -282,9 +350,12 @@ export async function handleAllyInteraction(interaction) {
         guildId: interaction.guildId,
         _id: { $in: ids },
       });
+      const refreshed = await refreshStoredAllyEmbed(interaction);
       await interaction.reply({
         ephemeral: true,
-        content: `Allys eliminados: **${result.deletedCount}**.`,
+        content: refreshed.ok
+          ? `Allys eliminados: **${result.deletedCount}**. Panel actualizado.`
+          : `Allys eliminados: **${result.deletedCount}**. Usa \`/ally embed\` para crear/revincular el panel.`,
       });
     } catch (err) {
       console.error("[ally] remove:", err);
