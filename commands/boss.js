@@ -136,7 +136,7 @@ export const bossCommand = {
     );
 
     await interaction.reply({
-      content: `||${roleMention}||`,
+      content: `${roleMention}`,
       embeds: [embed],
       components: [row],
     });
