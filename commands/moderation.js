@@ -287,7 +287,7 @@ export const clearCommand = {
       // bulkDelete ignora mensajes >14 días cuando filterOld=true
       const deleted = await channel.bulkDelete(cantidad, true);
       await interaction.editReply({
-        content: `🧹 Mensajes eliminados en ${channel}: **${deleted.size}**.`,
+        content: `**${deleted.size}** mensajes eliminados en ${channel}`,
       });
     } catch (err) {
       console.error("[mod] clear:", err);
