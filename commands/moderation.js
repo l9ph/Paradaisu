@@ -247,3 +247,54 @@ export const muteCommand = {
     }
   },
 };
+
+export const clearCommand = {
+  data: new SlashCommandBuilder()
+    .setName("clear")
+    .setDescription("Limpia mensajes del canal actual")
+    .setDMPermission(false)
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
+    .addIntegerOption((option) =>
+      option
+        .setName("cantidad")
+        .setDescription("Cantidad de mensajes a borrar (1-100)")
+        .setRequired(true)
+        .setMinValue(1)
+        .setMaxValue(100),
+    ),
+
+  async execute(interaction) {
+    if (!isGuild(interaction)) {
+      await interaction.reply({
+        flags: MessageFlags.Ephemeral,
+        content: "Este comando solo se puede usar en un servidor.",
+      });
+      return;
+    }
+
+    const cantidad = interaction.options.getInteger("cantidad", true);
+    const channel = interaction.channel;
+    if (!channel?.isTextBased?.() || !channel.bulkDelete) {
+      await interaction.reply({
+        flags: MessageFlags.Ephemeral,
+        content: "Este comando solo funciona en canales de texto.",
+      });
+      return;
+    }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    try {
+      // bulkDelete ignora mensajes >14 días cuando filterOld=true
+      const deleted = await channel.bulkDelete(cantidad, true);
+      await interaction.editReply({
+        content: `🧹 Mensajes eliminados en ${channel}: **${deleted.size}**.`,
+      });
+    } catch (err) {
+      console.error("[mod] clear:", err);
+      await interaction.editReply({
+        content:
+          "No pude borrar mensajes. Revisa permisos de gestionar mensajes en este canal.",
+      });
+    }
+  },
+};
