@@ -135,12 +135,29 @@ export const bossCommand = {
         .setStyle(ButtonStyle.Danger),
     );
 
-    await interaction.reply({
+    const hostMessage = await interaction.reply({
       content: `${roleMention}`,
       allowedMentions: { roles: [cfg.roleId] },
       embeds: [embed],
       components: [row],
+      fetchReply: true,
     });
+
+    // Si el host no entra en 1 minuto al canal creado, se cancela solo.
+    setTimeout(async () => {
+      try {
+        const member = await interaction.guild.members
+          .fetch(interaction.user.id)
+          .catch(() => null);
+        const joinedTarget = member?.voice?.channelId === voiceChannel.id;
+        if (joinedTarget) return;
+
+        await hostMessage.delete().catch(() => {});
+        await voiceChannel.delete("Host cancelado: el host no se unió en 1 minuto").catch(() => {});
+      } catch {
+        // Ignorar errores de cleanup.
+      }
+    }, 60_000);
   },
 };
 
