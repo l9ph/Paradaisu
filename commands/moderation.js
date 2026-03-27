@@ -76,7 +76,7 @@ export const banCommand = {
         deleteMessageSeconds: 0,
       });
       await interaction.editReply({
-        content: `✅ ${target.tag} fue baneado. Razón: ${reason}`,
+        content: `${target.tag} fue baneado. Razón: ${reason}`,
       });
     } catch (err) {
       console.error("[mod] ban:", err);
@@ -140,7 +140,7 @@ export const kickCommand = {
       }
       await member.kick(reason);
       await interaction.editReply({
-        content: `✅ ${target.tag} fue expulsado. Razón: ${reason}`,
+        content: `${target.tag} fue expulsado. Razón: ${reason}`,
       });
     } catch (err) {
       console.error("[mod] kick:", err);
@@ -236,7 +236,7 @@ export const muteCommand = {
       }
       await member.timeout(duration.ms, reason);
       await interaction.editReply({
-        content: `✅ ${target.tag} muteado por ${duration.label}. Razón: ${reason}`,
+        content: `${target.tag} muteado por ${duration.label}. Razón: ${reason}`,
       });
     } catch (err) {
       console.error("[mod] mute:", err);
