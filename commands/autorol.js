@@ -77,6 +77,9 @@ const EXTRA_OPTIONS = [
   { label: "Juegos", value: "x_juegos", roleId: "1487148491254796539" },
 ];
 
+/** Mención al publicar el panel con `/autorol`. */
+const AUTOROL_PANEL_PING_ROLE_ID = "1450312932184424539";
+
 function buildColorSelectMenu() {
   return new StringSelectMenuBuilder()
     .setCustomId("autorol:select:colors")
@@ -359,7 +362,12 @@ export const autorolCommand = {
         .setStyle(ButtonStyle.Success),
     );
 
-    await target.send({ embeds: [embed], components: [row] });
+    await target.send({
+      content: `<@&${AUTOROL_PANEL_PING_ROLE_ID}>`,
+      embeds: [embed],
+      components: [row],
+      allowedMentions: { roles: [AUTOROL_PANEL_PING_ROLE_ID] },
+    });
     await interaction.reply({
       flags: MessageFlags.Ephemeral,
       content: `Panel enviado a ${target}.`,

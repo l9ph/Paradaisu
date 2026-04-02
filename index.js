@@ -13,6 +13,7 @@ import {
   autorolCommand,
   handleAutorolInteraction,
 } from "./commands/autorol.js";
+import { anuncioCommand } from "./commands/anuncio.js";
 import { ticketCommand, handleTicketInteraction } from "./commands/ticket.js";
 import { verifyCommand } from "./commands/verify.js";
 
@@ -28,6 +29,7 @@ const commandModules = [
   verifyCommand,
   ticketCommand,
   autorolCommand,
+  anuncioCommand,
   allyCommand,
   bossCommand,
   banCommand,
