@@ -71,6 +71,12 @@ const BOSS_OPTIONS = [
   { label: "Titus", value: "b_titus", roleId: "1486048358358585475" },
 ];
 
+const EXTRA_OPTIONS = [
+  { label: "Hellmode", value: "x_hellmode", roleId: "1487311586358988852" },
+  { label: "Scrims", value: "x_scrims", roleId: "1487148273255846110" },
+  { label: "Juegos", value: "x_juegos", roleId: "1487148491254796539" },
+];
+
 function buildColorSelectMenu() {
   return new StringSelectMenuBuilder()
     .setCustomId("autorol:select:colors")
@@ -96,6 +102,20 @@ function buildBossSelectMenu() {
       BOSS_OPTIONS.map((b) => ({
         label: b.label,
         value: b.value,
+      })),
+    );
+}
+
+function buildExtraSelectMenu() {
+  return new StringSelectMenuBuilder()
+    .setCustomId("autorol:select:extra")
+    .setPlaceholder("Extra (varias opciones)")
+    .setMinValues(1)
+    .setMaxValues(EXTRA_OPTIONS.length)
+    .addOptions(
+      EXTRA_OPTIONS.map((e) => ({
+        label: e.label,
+        value: e.value,
       })),
     );
 }
@@ -208,18 +228,36 @@ async function assignConfigurableRoles({
       return;
     }
 
-    const allBossIds = BOSS_OPTIONS.map((b) => b.roleId.trim()).filter(Boolean);
-    for (const rid of allBossIds) {
-      if (member.roles.cache.has(rid)) await member.roles.remove(rid);
+    if (mode === "bosses") {
+      const allBossIds = BOSS_OPTIONS.map((b) => b.roleId.trim()).filter(Boolean);
+      for (const rid of allBossIds) {
+        if (member.roles.cache.has(rid)) await member.roles.remove(rid);
+      }
+      await member.roles.add(toAdd.map((x) => x.roleId.trim()));
+      let msg = `Listo: roles de boss actualizados (**${toAdd.map((x) => x.label).join(", ")}**).`;
+      if (missingLabels)
+        msg += `\n*(Algunas opciones elegidas aún no tienen rol: ${missingLabels})*`;
+      await interaction.reply({
+        flags: MessageFlags.Ephemeral,
+        content: msg,
+      });
+      return;
     }
-    await member.roles.add(toAdd.map((x) => x.roleId.trim()));
-    let msg = `Listo: roles de boss actualizados (**${toAdd.map((x) => x.label).join(", ")}**).`;
-    if (missingLabels)
-      msg += `\n*(Algunas opciones elegidas aún no tienen rol: ${missingLabels})*`;
-    await interaction.reply({
-      flags: MessageFlags.Ephemeral,
-      content: msg,
-    });
+
+    if (mode === "extra") {
+      const allExtraIds = EXTRA_OPTIONS.map((e) => e.roleId.trim()).filter(Boolean);
+      for (const rid of allExtraIds) {
+        if (member.roles.cache.has(rid)) await member.roles.remove(rid);
+      }
+      await member.roles.add(toAdd.map((x) => x.roleId.trim()));
+      let extraMsg = `Listo: roles Extra actualizados (**${toAdd.map((x) => x.label).join(", ")}**).`;
+      if (missingLabels)
+        extraMsg += `\n*(Algunas opciones elegidas aún no tienen rol: ${missingLabels})*`;
+      await interaction.reply({
+        flags: MessageFlags.Ephemeral,
+        content: extraMsg,
+      });
+    }
   } catch (err) {
     console.error("[autorol] Asignar roles:", err);
     await interaction.reply({
@@ -234,7 +272,7 @@ export const autorolCommand = {
   data: new SlashCommandBuilder()
     .setName("autorol")
     .setDescription(
-      "Publica el panel de auto-roles (colores y bosses) en un canal.",
+      "Publica el panel de auto-roles (colores, bosses y extra) en un canal.",
     )
     .setDMPermission(false)
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
@@ -315,6 +353,10 @@ export const autorolCommand = {
         .setCustomId("autorol:bosses")
         .setLabel("Bosses")
         .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("autorol:extra")
+        .setLabel("Extra")
+        .setStyle(ButtonStyle.Success),
     );
 
     await target.send({ embeds: [embed], components: [row] });
@@ -337,6 +379,14 @@ export async function handleAutorolInteraction(interaction) {
     }
     if (interaction.customId === "autorol:bosses") {
       const row = new ActionRowBuilder().addComponents(buildBossSelectMenu());
+      await interaction.reply({
+        flags: MessageFlags.Ephemeral,
+        components: [row],
+      });
+      return true;
+    }
+    if (interaction.customId === "autorol:extra") {
+      const row = new ActionRowBuilder().addComponents(buildExtraSelectMenu());
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
         components: [row],
@@ -380,6 +430,25 @@ export async function handleAutorolInteraction(interaction) {
         entries: BOSS_OPTIONS,
         values: interaction.values,
         mode: "bosses",
+      });
+      return true;
+    }
+
+    if (interaction.customId === "autorol:select:extra") {
+      const member = await ensureMember(interaction);
+      if (!member) {
+        await interaction.reply({
+          flags: MessageFlags.Ephemeral,
+          content: "Esto solo funciona dentro de un servidor.",
+        });
+        return true;
+      }
+      await assignConfigurableRoles({
+        interaction,
+        member,
+        entries: EXTRA_OPTIONS,
+        values: interaction.values,
+        mode: "extra",
       });
       return true;
     }
