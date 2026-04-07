@@ -17,7 +17,6 @@ import {
   joinVoiceChannel,
 } from "@discordjs/voice";
 import play from "play-dl";
-import yts from "yt-search";
 
 const SEARCH_LIMIT = 10;
 const SEARCH_CACHE_TTL_MS = 90_000;
@@ -78,18 +77,43 @@ async function searchMusicByName(query, limit = SEARCH_LIMIT) {
   } catch (err) {
     // Fallback cuando play-dl no puede parsear algunos resultados de YouTube.
     console.warn("[music] play-dl search fallback:", err?.message || err);
-    const out = await yts.search(query);
-    const rawVideos = Array.isArray(out?.videos) ? out.videos : [];
-    const mapped = rawVideos
-      .slice(0, Math.max(limit * 2, 12))
-      .map((v) => ({
-        title: v.title,
-        url: v.url,
-        durationRaw: v.timestamp || "desconocida",
-        durationInSec: Number.isFinite(v.seconds) ? v.seconds : undefined,
-        channel: { name: v.author?.name || "" },
-      }));
-    return sortMusicLike(mapped).slice(0, limit);
+    const endpoints = [
+      "https://piped.video/api/v1/search",
+      "https://pipedapi.adminforge.de/search",
+    ];
+
+    for (const base of endpoints) {
+      try {
+        const url = `${base}?q=${encodeURIComponent(query)}&filter=videos`;
+        const res = await fetch(url, {
+          headers: { "User-Agent": "ParadaisuBot/1.0 (+music-fallback)" },
+        });
+        if (!res.ok) continue;
+        const data = await res.json();
+        const rows = Array.isArray(data) ? data : [];
+        const mapped = rows
+          .filter((x) => x?.type === "stream" && x?.url && x?.title)
+          .slice(0, Math.max(limit * 2, 12))
+          .map((x) => ({
+            title: x.title,
+            url: x.url.startsWith("http") ? x.url : `https://youtube.com${x.url}`,
+            durationRaw:
+              typeof x.duration === "number" && x.duration > 0
+                ? `${Math.floor(x.duration / 60)}:${String(x.duration % 60).padStart(2, "0")}`
+                : "desconocida",
+            durationInSec:
+              typeof x.duration === "number" && Number.isFinite(x.duration)
+                ? x.duration
+                : undefined,
+            channel: { name: x.uploaderName || "" },
+          }));
+        if (mapped.length > 0) return sortMusicLike(mapped).slice(0, limit);
+      } catch (fallbackErr) {
+        console.warn("[music] http fallback failed:", fallbackErr?.message || fallbackErr);
+      }
+    }
+
+    throw err;
   }
 }
 
