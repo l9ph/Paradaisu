@@ -5,12 +5,12 @@ import {
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from "discord.js";
+import { BOT_MESSAGES } from "../messages.js";
 
 const ANUNCIO_ROLE_ID = "1450312932184424539";
 const ANUNCIO_COLOR = 2326507;
 const ANUNCIO_THUMB_URL =
   "https://media.discordapp.net/attachments/588518991551528960/1489377590916677802/5bece49ed04c92f29e2eafc0fc42dfd1.png?ex=69d03278&is=69cee0f8&hm=8725378348ace84649692769e06dd1235ee891b05c52e0a8bfbeaf58d2c60a62&=&format=webp&quality=lossless";
-
 export const anuncioCommand = {
   data: new SlashCommandBuilder()
     .setName("anuncio")
@@ -28,7 +28,7 @@ export const anuncioCommand = {
     if (!interaction.inGuild()) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Este comando solo se puede usar en un servidor.",
+        content: BOT_MESSAGES.common.serverOnly,
       });
       return;
     }
@@ -41,7 +41,7 @@ export const anuncioCommand = {
     ) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Usa este comando en un canal de texto o anuncios.",
+        content: BOT_MESSAGES.anuncio.channelInvalid,
       });
       return;
     }
@@ -50,7 +50,7 @@ export const anuncioCommand = {
     if (!mensaje) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "El mensaje no puede estar vacío.",
+        content: BOT_MESSAGES.anuncio.emptyMessage,
       });
       return;
     }
@@ -65,19 +65,18 @@ export const anuncioCommand = {
     ) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content:
-          "No tengo permiso para ver el canal, enviar mensajes o insertar embeds aquí.",
+        content: BOT_MESSAGES.anuncio.missingBotPerms,
       });
       return;
     }
 
     const embed = new EmbedBuilder()
       .setColor(ANUNCIO_COLOR)
-      .setTitle("Anuncio Paradaisu")
+      .setTitle(BOT_MESSAGES.anuncio.title)
       .setDescription(mensaje)
       .setThumbnail(ANUNCIO_THUMB_URL)
       .setFooter({
-        text: "Paradaisu",
+        text: BOT_MESSAGES.anuncio.footer,
         iconURL: ANUNCIO_THUMB_URL,
       });
 
@@ -89,13 +88,13 @@ export const anuncioCommand = {
       });
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Anuncio publicado.",
+        content: BOT_MESSAGES.anuncio.sent,
       });
     } catch (err) {
       console.error("[anuncio]", err);
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "No se pudo enviar el anuncio. Revisa permisos del bot y del canal.",
+        content: BOT_MESSAGES.anuncio.sendError,
       });
     }
   },

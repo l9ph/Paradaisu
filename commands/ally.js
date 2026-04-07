@@ -11,10 +11,10 @@ import {
   TextInputStyle,
 } from "discord.js";
 import { MongoClient, ObjectId } from "mongodb";
+import { BOT_MESSAGES } from "../messages.js";
 
 const ALLY_EMBED_IMAGE_URL =
   "https://images-ext-1.discordapp.net/external/N_CetSKMoMcw0pTvrHDAT13TtTuakN3xfyqno2PvPZo/https/cdn.nekotina.com/guilds/1133248786773327994/03c2ccd0-8540-4382-86c4-22e3bfd5bf9d.jpg?format=webp";
-
 const ALLY_COLLECTION = "ally_links";
 const ALLY_META_COLLECTION = "ally_panel_meta";
 const modalCustomId = "ally:modal:add";
@@ -160,7 +160,7 @@ export const allyCommand = {
     if (!interaction.inGuild()) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Este comando solo se puede usar en un servidor.",
+        content: BOT_MESSAGES.common.serverOnly,
       });
       return;
     }
@@ -180,13 +180,13 @@ export const allyCommand = {
         await createOrReplacePanelInCurrentChannel(interaction);
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
-          content: "Panel de allies creado/actualizado en este canal.",
+          content: BOT_MESSAGES.ally.panelUpdated,
         });
       } catch (err) {
         console.error("[ally] embed:", err);
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
-          content: "No pude crear/actualizar el panel de allies.",
+          content: BOT_MESSAGES.ally.panelUpdateError,
         });
       }
       return;
@@ -229,7 +229,7 @@ export const allyCommand = {
         if (entries.length === 0) {
           await interaction.reply({
             flags: MessageFlags.Ephemeral,
-            content: "No hay allies registrados para eliminar.",
+            content: BOT_MESSAGES.ally.noAlliesToRemove,
           });
           return;
         }
@@ -257,7 +257,7 @@ export const allyCommand = {
         console.error("[ally] remove list:", err);
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
-          content: "No pude cargar la lista de allies.",
+          content: BOT_MESSAGES.ally.loadListError,
         });
       }
     }
@@ -273,7 +273,7 @@ export const allyCommand = {
         if (entries.length === 0) {
           await interaction.reply({
             flags: MessageFlags.Ephemeral,
-            content: "No hay allies registrados para editar.",
+            content: BOT_MESSAGES.ally.noAlliesToEdit,
           });
           return;
         }
@@ -301,7 +301,7 @@ export const allyCommand = {
         console.error("[ally] edit list:", err);
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
-          content: "No pude cargar la lista de allies para editar.",
+          content: BOT_MESSAGES.ally.loadEditListError,
         });
       }
       return;
@@ -315,7 +315,7 @@ export async function handleAllyInteraction(interaction) {
     if (!mongoConfigOk()) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Falta `MONGODB_URI` para guardar allies.",
+        content: BOT_MESSAGES.ally.missingMongoSave,
       });
       return true;
     }
@@ -330,7 +330,7 @@ export async function handleAllyInteraction(interaction) {
     if (!guildName) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Nombre guild es obligatorio.",
+        content: BOT_MESSAGES.ally.guildNameRequired,
       });
       return true;
     }
@@ -355,7 +355,7 @@ export async function handleAllyInteraction(interaction) {
       console.error("[ally] add:", err);
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "No pude guardar el ally en MongoDB.",
+        content: BOT_MESSAGES.ally.saveError,
       });
     }
     return true;
@@ -369,7 +369,7 @@ export async function handleAllyInteraction(interaction) {
     if (!mongoConfigOk()) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Falta `MONGODB_URI` para eliminar allies.",
+        content: BOT_MESSAGES.ally.missingMongoDelete,
       });
       return true;
     }
@@ -387,7 +387,7 @@ export async function handleAllyInteraction(interaction) {
     if (ids.length === 0) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "No se recibieron IDs válidos para eliminar.",
+        content: BOT_MESSAGES.ally.invalidIdsToDelete,
       });
       return true;
     }
@@ -409,7 +409,7 @@ export async function handleAllyInteraction(interaction) {
       console.error("[ally] remove:", err);
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "No pude eliminar los allies en MongoDB.",
+        content: BOT_MESSAGES.ally.deleteError,
       });
     }
     return true;
@@ -423,7 +423,7 @@ export async function handleAllyInteraction(interaction) {
     if (!mongoConfigOk()) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Falta `MONGODB_URI` para editar allies.",
+        content: BOT_MESSAGES.ally.missingMongoEdit,
       });
       return true;
     }
@@ -435,7 +435,7 @@ export async function handleAllyInteraction(interaction) {
     } catch {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "ID de ally inválido para editar.",
+        content: BOT_MESSAGES.ally.invalidIdToEdit,
       });
       return true;
     }
@@ -446,7 +446,7 @@ export async function handleAllyInteraction(interaction) {
       if (!doc) {
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
-          content: "No encontré ese ally. Prueba de nuevo.",
+          content: BOT_MESSAGES.ally.allyNotFoundRetry,
         });
         return true;
       }
@@ -479,7 +479,7 @@ export async function handleAllyInteraction(interaction) {
       console.error("[ally] edit select:", err);
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "No pude abrir el formulario de edición.",
+        content: BOT_MESSAGES.ally.openEditFormError,
       });
     }
     return true;
@@ -490,7 +490,7 @@ export async function handleAllyInteraction(interaction) {
     if (!mongoConfigOk()) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Falta `MONGODB_URI` para editar allies.",
+        content: BOT_MESSAGES.ally.missingMongoEdit,
       });
       return true;
     }
@@ -502,7 +502,7 @@ export async function handleAllyInteraction(interaction) {
     } catch {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "ID de ally inválido para editar.",
+        content: BOT_MESSAGES.ally.invalidIdToEdit,
       });
       return true;
     }
@@ -517,7 +517,7 @@ export async function handleAllyInteraction(interaction) {
     if (!guildName) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Nombre guild es obligatorio.",
+        content: BOT_MESSAGES.ally.guildNameRequired,
       });
       return true;
     }
@@ -538,7 +538,7 @@ export async function handleAllyInteraction(interaction) {
       if (!result.matchedCount) {
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
-          content: "No encontré ese ally para editar.",
+          content: BOT_MESSAGES.ally.allyNotFoundToEdit,
         });
         return true;
       }
@@ -554,7 +554,7 @@ export async function handleAllyInteraction(interaction) {
       console.error("[ally] edit save:", err);
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "No pude guardar la edición del ally.",
+        content: BOT_MESSAGES.ally.editSaveError,
       });
     }
     return true;

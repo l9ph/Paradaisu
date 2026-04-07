@@ -3,12 +3,12 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ChannelType,
-  Colors,
   EmbedBuilder,
   MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from "discord.js";
+import { BOT_MESSAGES } from "../messages.js";
 
 const BOSS_CONFIG = {
   enmity: { label: "Enmity", roleId: "1486048361156186303" },
@@ -40,7 +40,7 @@ export const bossCommand = {
     if (!interaction.inGuild()) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Este comando solo se puede usar en un servidor.",
+        content: BOT_MESSAGES.common.serverOnly,
       });
       return;
     }
@@ -50,7 +50,7 @@ export const bossCommand = {
     if (!cfg) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Boss inválido.",
+        content: BOT_MESSAGES.boss.invalidBoss,
       });
       return;
     }
@@ -170,7 +170,7 @@ export async function handleBossInteraction(interaction) {
   if (interaction.user.id !== hostId) {
     await interaction.reply({
       flags: MessageFlags.Ephemeral,
-      content: "Solo la persona que hosteó puede terminar el host.",
+      content: BOT_MESSAGES.boss.finishOnlyHost,
     });
     return true;
   }

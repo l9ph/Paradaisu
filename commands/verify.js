@@ -1,4 +1,5 @@
 import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import { BOT_MESSAGES } from "../messages.js";
 
 const VERIFY_ROLE_IDS = {
   ally: [
@@ -144,7 +145,7 @@ export const verifyCommand = {
   async execute(interaction) {
     if (!interaction.inGuild()) {
       await interaction.reply({
-        content: "Este comando solo se puede usar en un servidor.",
+        content: BOT_MESSAGES.common.serverOnly,
         flags: MessageFlags.Ephemeral,
       });
       return;

@@ -14,6 +14,13 @@ import {
   handleAutorolInteraction,
 } from "./commands/autorol.js";
 import { anuncioCommand } from "./commands/anuncio.js";
+import {
+  handleMusicInteraction,
+  leaveCommand,
+  playCommand,
+  skipCommand,
+  stopCommand,
+} from "./commands/music.js";
 import { ticketCommand, handleTicketInteraction } from "./commands/ticket.js";
 import { verifyCommand } from "./commands/verify.js";
 
@@ -30,6 +37,10 @@ const commandModules = [
   ticketCommand,
   autorolCommand,
   anuncioCommand,
+  playCommand,
+  skipCommand,
+  stopCommand,
+  leaveCommand,
   allyCommand,
   bossCommand,
   banCommand,
@@ -64,7 +75,11 @@ async function verifyMongoOnStartup() {
 }
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildVoiceStates,
+  ],
 });
 
 client.once(Events.ClientReady, async (readyClient) => {
@@ -125,6 +140,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (await handleAllyInteraction(interaction)) return;
 
   if (await handleAutorolInteraction(interaction)) return;
+
+  if (await handleMusicInteraction(interaction)) return;
 
   if (await handleTicketInteraction(interaction)) return;
 

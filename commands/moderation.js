@@ -3,6 +3,7 @@ import {
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from "discord.js";
+import { BOT_MESSAGES } from "../messages.js";
 
 function isGuild(interaction) {
   return Boolean(interaction?.inGuild?.());
@@ -51,7 +52,7 @@ export const banCommand = {
     if (!isGuild(interaction)) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Este comando solo se puede usar en un servidor.",
+        content: BOT_MESSAGES.common.serverOnly,
       });
       return;
     }
@@ -64,7 +65,7 @@ export const banCommand = {
     if (targetIsSelfOrBot(interaction, target.id)) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "No puedes banearte a ti mismo ni al bot.",
+        content: BOT_MESSAGES.moderation.cannotTargetSelfOrBotBan,
       });
       return;
     }
@@ -76,7 +77,7 @@ export const banCommand = {
         deleteMessageSeconds: 0,
       });
       await interaction.editReply({
-        content: `${target.tag} fue baneado. Razón: ${reason}`,
+        content: BOT_MESSAGES.moderation.banOk(target.tag, reason),
       });
     } catch (err) {
       console.error("[mod] ban:", err);
@@ -111,7 +112,7 @@ export const kickCommand = {
     if (!isGuild(interaction)) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Este comando solo se puede usar en un servidor.",
+        content: BOT_MESSAGES.common.serverOnly,
       });
       return;
     }
@@ -124,7 +125,7 @@ export const kickCommand = {
     if (targetIsSelfOrBot(interaction, target.id)) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "No puedes expulsarte a ti mismo ni al bot.",
+        content: BOT_MESSAGES.moderation.cannotTargetSelfOrBotKick,
       });
       return;
     }
@@ -134,13 +135,13 @@ export const kickCommand = {
       const member = await fetchMemberSafe(interaction.guild, target.id);
       if (!member) {
         await interaction.editReply({
-          content: "No encontré al usuario dentro de este servidor.",
+          content: BOT_MESSAGES.moderation.memberNotFound,
         });
         return;
       }
       await member.kick(reason);
       await interaction.editReply({
-        content: `${target.tag} fue expulsado. Razón: ${reason}`,
+        content: BOT_MESSAGES.moderation.kickOk(target.tag, reason),
       });
     } catch (err) {
       console.error("[mod] kick:", err);
@@ -198,7 +199,7 @@ export const muteCommand = {
     if (!isGuild(interaction)) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Este comando solo se puede usar en un servidor.",
+        content: BOT_MESSAGES.common.serverOnly,
       });
       return;
     }
@@ -213,14 +214,14 @@ export const muteCommand = {
     if (!duration) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Duración inválida.",
+        content: BOT_MESSAGES.moderation.invalidDuration,
       });
       return;
     }
     if (targetIsSelfOrBot(interaction, target.id)) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "No puedes mutearte a ti mismo ni al bot.",
+        content: BOT_MESSAGES.moderation.cannotTargetSelfOrBotMute,
       });
       return;
     }
@@ -230,13 +231,17 @@ export const muteCommand = {
       const member = await fetchMemberSafe(interaction.guild, target.id);
       if (!member) {
         await interaction.editReply({
-          content: "No encontré al usuario dentro de este servidor.",
+          content: BOT_MESSAGES.moderation.memberNotFound,
         });
         return;
       }
       await member.timeout(duration.ms, reason);
       await interaction.editReply({
-        content: `${target.tag} muteado por ${duration.label}. Razón: ${reason}`,
+        content: BOT_MESSAGES.moderation.muteOk(
+          target.tag,
+          duration.label,
+          reason,
+        ),
       });
     } catch (err) {
       console.error("[mod] mute:", err);
@@ -267,7 +272,7 @@ export const clearCommand = {
     if (!isGuild(interaction)) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Este comando solo se puede usar en un servidor.",
+        content: BOT_MESSAGES.common.serverOnly,
       });
       return;
     }
@@ -277,7 +282,7 @@ export const clearCommand = {
     if (!channel?.isTextBased?.() || !channel.bulkDelete) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: "Este comando solo funciona en canales de texto.",
+        content: BOT_MESSAGES.moderation.textChannelOnly,
       });
       return;
     }
@@ -287,7 +292,7 @@ export const clearCommand = {
       // bulkDelete ignora mensajes >14 días cuando filterOld=true
       const deleted = await channel.bulkDelete(cantidad, true);
       await interaction.editReply({
-        content: `**${deleted.size}** mensajes eliminados en ${channel}`,
+        content: BOT_MESSAGES.moderation.clearOk(deleted.size, channel),
       });
     } catch (err) {
       console.error("[mod] clear:", err);

@@ -18,6 +18,7 @@ import {
   DEFAULT_EMBED_BANNER_URL,
   userAvatarThumbnailUrl,
 } from "../embedDefaults.js";
+import { BOT_MESSAGES } from "../messages.js";
 
 const TICKET_STAFF_ROLE_IDS = ["1450309317889884270"];
 
@@ -152,7 +153,7 @@ async function submitTicketToChannel(
       allowCreatorAfterReviewed,
     );
     await interaction.editReply({
-      content: `Ticket creado. Tu canal: ${channel}`,
+      content: BOT_MESSAGES.ticket.created(channel),
     });
   } catch (err) {
     console.error("[ticket] No se pudo crear el canal:", err);
@@ -185,7 +186,7 @@ export const ticketCommand = {
   async execute(interaction) {
     if (!interaction.inGuild()) {
       await interaction.reply({
-        content: "Este comando solo se puede usar en un servidor.",
+        content: BOT_MESSAGES.common.serverOnly,
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -214,7 +215,7 @@ export const ticketCommand = {
       target.guildId !== interaction.guild.id
     ) {
       await interaction.reply({
-        content: "Elige un canal de texto de **este** servidor.",
+        content: BOT_MESSAGES.common.onlyInThisGuildChannel,
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -225,7 +226,7 @@ export const ticketCommand = {
       target.type !== ChannelType.GuildAnnouncement
     ) {
       await interaction.reply({
-        content: "El canal tiene que ser de texto o anuncios.",
+        content: BOT_MESSAGES.common.channelMustBeTextOrNews,
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -272,7 +273,7 @@ export const ticketCommand = {
 
     await target.send({ embeds: [embed], components: [row] });
     await interaction.reply({
-      content: `Prueba publicada en ${target}.`,
+      content: BOT_MESSAGES.ticket.panelSent(target),
       flags: MessageFlags.Ephemeral,
     });
   },
@@ -292,7 +293,7 @@ export async function handleTicketInteraction(interaction) {
       }
 
       await interaction.reply({
-        content: "Canal eliminado por administración.",
+        content: BOT_MESSAGES.ticket.deletedByAdmin,
       });
       await interaction.channel.delete("Ticket finalizado y eliminado");
       return true;
@@ -329,11 +330,11 @@ export async function handleTicketInteraction(interaction) {
         }
 
         await interaction.channel.send({
-          content: `<@${creatorId}> tu ticket fue leído, ahora podrás ponerte de acuerdo con un Hoster.`,
+          content: BOT_MESSAGES.ticket.reviewedPvp(creatorId),
         });
       } else {
         await interaction.channel.send({
-          content: `<@${creatorId}> tu ticket fue leído. Espera respuesta.`,
+          content: BOT_MESSAGES.ticket.reviewedDefault(creatorId),
         });
       }
 
@@ -643,7 +644,7 @@ export async function handleTicketInteraction(interaction) {
 
     if (!interaction.inGuild()) {
       await interaction.reply({
-        content: "Este formulario solo funciona en un servidor.",
+        content: BOT_MESSAGES.common.serverOnlyForm,
         flags: MessageFlags.Ephemeral,
       });
       return true;

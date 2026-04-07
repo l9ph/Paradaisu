@@ -11,6 +11,7 @@ import {
   StringSelectMenuBuilder,
 } from "discord.js";
 import { DEFAULT_EMBED_BANNER_URL } from "../embedDefaults.js";
+import { BOT_MESSAGES } from "../messages.js";
 
 /** Emoji en el menú (ID). Rellena `roleId` cuando los tengas. */
 const COLOR_OPTIONS = [
@@ -150,8 +151,8 @@ async function assignConfigurableRoles({
       flags: MessageFlags.Ephemeral,
       content:
         missingConfig.length > 0
-          ? "La opción que elegiste aún no tiene rol configurado en el bot. Avísale a un administrador."
-          : "No hay roles configurados para esa selección.",
+          ? BOT_MESSAGES.autorol.roleMissingConfig
+          : BOT_MESSAGES.autorol.noConfiguredRoles,
     });
     return;
   }
@@ -164,15 +165,14 @@ async function assignConfigurableRoles({
     if (!role) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content: `El rol configurado para **${label}** no existe en el servidor.`,
+        content: BOT_MESSAGES.autorol.roleDoesNotExist(label),
       });
       return;
     }
     if (me.roles.highest.comparePositionTo(role) <= 0) {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
-        content:
-          "No puedo asignar ese rol: está por encima de mi rol más alto. Mueve el rol del bot arriba.",
+        content: BOT_MESSAGES.autorol.roleHierarchyError,
       });
       return;
     }
@@ -221,8 +221,11 @@ async function assignConfigurableRoles({
           removedLabels[0] === opt.label
         );
       const content = hadPrevious
-        ? `Te quité **${removedLabels.join(", ")}** y te asigné **${opt.label}**.`
-        : `Listo: te asigné el color **${opt.label}**.`;
+        ? BOT_MESSAGES.autorol.removedAndAssigned(
+            removedLabels.join(", "),
+            opt.label,
+          )
+        : BOT_MESSAGES.autorol.assignedColor(opt.label);
 
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
@@ -237,9 +240,11 @@ async function assignConfigurableRoles({
         if (member.roles.cache.has(rid)) await member.roles.remove(rid);
       }
       await member.roles.add(toAdd.map((x) => x.roleId.trim()));
-      let msg = `Listo: roles de boss actualizados (**${toAdd.map((x) => x.label).join(", ")}**).`;
+      let msg = BOT_MESSAGES.autorol.bossesUpdated(
+        toAdd.map((x) => x.label).join(", "),
+      );
       if (missingLabels)
-        msg += `\n*(Algunas opciones elegidas aún no tienen rol: ${missingLabels})*`;
+        msg += BOT_MESSAGES.autorol.missingSomeRoles(missingLabels);
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
         content: msg,
@@ -253,9 +258,11 @@ async function assignConfigurableRoles({
         if (member.roles.cache.has(rid)) await member.roles.remove(rid);
       }
       await member.roles.add(toAdd.map((x) => x.roleId.trim()));
-      let extraMsg = `Listo: roles Extra actualizados (**${toAdd.map((x) => x.label).join(", ")}**).`;
+      let extraMsg = BOT_MESSAGES.autorol.extraUpdated(
+        toAdd.map((x) => x.label).join(", "),
+      );
       if (missingLabels)
-        extraMsg += `\n*(Algunas opciones elegidas aún no tienen rol: ${missingLabels})*`;
+        extraMsg += BOT_MESSAGES.autorol.missingSomeRoles(missingLabels);
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
         content: extraMsg,
@@ -266,7 +273,7 @@ async function assignConfigurableRoles({
     await interaction.reply({
       flags: MessageFlags.Ephemeral,
       content:
-        "No pude asignar el rol. Comprueba que el bot tenga **Gestionar roles** y que su rol esté por encima de los roles a asignar.",
+        BOT_MESSAGES.autorol.assignError,
     });
   }
 }
@@ -293,7 +300,7 @@ export const autorolCommand = {
   async execute(interaction) {
     if (!interaction.inGuild()) {
       await interaction.reply({
-        content: "Este comando solo se puede usar en un servidor.",
+        content: BOT_MESSAGES.common.serverOnly,
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -306,7 +313,7 @@ export const autorolCommand = {
       target.guildId !== interaction.guild.id
     ) {
       await interaction.reply({
-        content: "Elige un canal de texto de **este** servidor.",
+        content: BOT_MESSAGES.common.onlyInThisGuildChannel,
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -317,7 +324,7 @@ export const autorolCommand = {
       target.type !== ChannelType.GuildAnnouncement
     ) {
       await interaction.reply({
-        content: "El canal tiene que ser de texto o anuncios.",
+        content: BOT_MESSAGES.common.channelMustBeTextOrNews,
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -332,8 +339,7 @@ export const autorolCommand = {
       !perms.has(PermissionFlagsBits.EmbedLinks)
     ) {
       await interaction.reply({
-        content:
-          "No tengo permiso para **ver**, **enviar mensajes** e **insertar enlaces** en ese canal.",
+        content: BOT_MESSAGES.autorol.targetChannelPermsError,
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -342,9 +348,7 @@ export const autorolCommand = {
     const embed = new EmbedBuilder()
       .setColor(Colors.Blurple)
       .setTitle("Auto roles")
-      .setDescription(
-        "Elige tus roles.",
-      )
+      .setDescription("Elige tus roles.")
       .setImage(DEFAULT_EMBED_BANNER_URL);
 
     const row = new ActionRowBuilder().addComponents(
@@ -370,7 +374,7 @@ export const autorolCommand = {
     });
     await interaction.reply({
       flags: MessageFlags.Ephemeral,
-      content: `Panel enviado a ${target}.`,
+      content: BOT_MESSAGES.autorol.panelSent(target),
     });
   },
 };
@@ -409,7 +413,7 @@ export async function handleAutorolInteraction(interaction) {
       if (!member) {
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
-          content: "Esto solo funciona dentro de un servidor.",
+          content: BOT_MESSAGES.common.onlyWorksInGuild,
         });
         return true;
       }
@@ -428,7 +432,7 @@ export async function handleAutorolInteraction(interaction) {
       if (!member) {
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
-          content: "Esto solo funciona dentro de un servidor.",
+          content: BOT_MESSAGES.common.onlyWorksInGuild,
         });
         return true;
       }
@@ -447,7 +451,7 @@ export async function handleAutorolInteraction(interaction) {
       if (!member) {
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
-          content: "Esto solo funciona dentro de un servidor.",
+          content: BOT_MESSAGES.common.onlyWorksInGuild,
         });
         return true;
       }
