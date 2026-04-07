@@ -129,26 +129,46 @@ client.once(Events.ClientReady, async (readyClient) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
-  if (interaction.isAutocomplete()) {
+  try {
+    if (interaction.isAutocomplete()) {
+      const command = commandByName.get(interaction.commandName);
+      if (command?.autocomplete) await command.autocomplete(interaction);
+      return;
+    }
+
+    if (await handleBossInteraction(interaction)) return;
+
+    if (await handleAllyInteraction(interaction)) return;
+
+    if (await handleAutorolInteraction(interaction)) return;
+
+    if (await handleMusicInteraction(interaction)) return;
+
+    if (await handleTicketInteraction(interaction)) return;
+
+    if (!interaction.isChatInputCommand()) return;
+
     const command = commandByName.get(interaction.commandName);
-    if (command?.autocomplete) await command.autocomplete(interaction);
-    return;
+    if (command?.execute) await command.execute(interaction);
+  } catch (err) {
+    console.error("[interaction] Error no controlado:", err);
+    if (!interaction.isRepliable()) return;
+    try {
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({
+          content: "Ocurrió un error al procesar la interacción.",
+          components: [],
+        });
+      } else {
+        await interaction.reply({
+          content: "Ocurrió un error al procesar la interacción.",
+          flags: 64,
+        });
+      }
+    } catch {
+      // ignorar si ya expiró la interacción
+    }
   }
-
-  if (await handleBossInteraction(interaction)) return;
-
-  if (await handleAllyInteraction(interaction)) return;
-
-  if (await handleAutorolInteraction(interaction)) return;
-
-  if (await handleMusicInteraction(interaction)) return;
-
-  if (await handleTicketInteraction(interaction)) return;
-
-  if (!interaction.isChatInputCommand()) return;
-
-  const command = commandByName.get(interaction.commandName);
-  if (command?.execute) await command.execute(interaction);
 });
 
 client.login(token);

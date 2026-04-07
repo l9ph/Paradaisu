@@ -18,6 +18,8 @@ import play from "play-dl";
 
 const SEARCH_LIMIT = 10;
 const AUTOCOMPLETE_LIMIT = 10;
+const MAX_RATE_LIMIT_RETRIES = 2;
+const RATE_LIMIT_RETRY_MS = 5000;
 
 const musicStates = new Map();
 
@@ -144,6 +146,11 @@ function getMusicState(guildId) {
   return musicStates.get(guildId) || null;
 }
 
+function isRateLimitedError(err) {
+  const msg = String(err?.message || err || "").toLowerCase();
+  return msg.includes("429") || msg.includes("rate limit");
+}
+
 function cleanupGuildState(guildId) {
   const state = musicStates.get(guildId);
   if (!state) return;
@@ -173,11 +180,25 @@ async function playNext(guildId) {
     const stream = await play.stream(next.url);
     const resource = createAudioResource(stream.stream, { inputType: stream.type });
     state.current = next;
+    next._retries = 0;
     state.player.play(resource);
   } catch (err) {
     console.error("[music] Error reproduciendo track:", err);
     state.current = null;
-    await playNext(guildId);
+    if (isRateLimitedError(err)) {
+      const retries = Number(next?._retries || 0);
+      if (retries < MAX_RATE_LIMIT_RETRIES) {
+        next._retries = retries + 1;
+        state.queue.unshift(next);
+        setTimeout(() => {
+          void playNext(guildId);
+        }, RATE_LIMIT_RETRY_MS);
+        return;
+      }
+    }
+    setTimeout(() => {
+      void playNext(guildId);
+    }, 250);
   }
 }
 
