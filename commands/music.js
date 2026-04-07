@@ -1,9 +1,7 @@
 import {
-  ActionRowBuilder,
   MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
-  StringSelectMenuBuilder,
 } from "discord.js";
 import { BOT_MESSAGES } from "../messages.js";
 import {
@@ -19,16 +17,22 @@ import {
 import play from "play-dl";
 
 const SEARCH_LIMIT = 10;
-const SEARCH_CACHE_TTL_MS = 90_000;
 const AUTOCOMPLETE_LIMIT = 10;
 
-const pendingSearches = new Map();
 const musicStates = new Map();
 
 function buildTrackFromResult(r) {
+  const fallbackVideoId = r?.videoId;
+  const resolvedUrl =
+    typeof r?.url === "string" && r.url.trim()
+      ? r.url.trim()
+      : fallbackVideoId
+        ? `https://www.youtube.com/watch?v=${fallbackVideoId}`
+        : "";
+
   return {
     title: r.title || "Sin título",
-    url: r.url,
+    url: resolvedUrl,
     duration:
       r.durationRaw ||
       (typeof r.durationInSec === "number" ? `${r.durationInSec}s` : "desconocida"),
@@ -38,6 +42,15 @@ function buildTrackFromResult(r) {
 function truncate(text, max = 100) {
   if (!text) return "";
   return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
+}
+
+function isValidHttpUrl(raw) {
+  try {
+    const u = new URL(String(raw || ""));
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function scoreMusicLikeResult(item) {
@@ -146,7 +159,11 @@ function cleanupGuildState(guildId) {
 async function playNext(guildId) {
   const state = musicStates.get(guildId);
   if (!state) return;
-  const next = state.queue.shift();
+  let next = state.queue.shift();
+  while (next && !isValidHttpUrl(next.url)) {
+    console.warn("[music] track omitido por URL inválida:", next);
+    next = state.queue.shift();
+  }
   if (!next) {
     state.current = null;
     return;
@@ -207,6 +224,9 @@ async function enqueueTrack(interaction, track) {
   const guildId = interaction.guild.id;
   const memberVoice = interaction.member?.voice?.channel;
   if (!memberVoice) return { ok: false, error: BOT_MESSAGES.music.mustBeInVoice };
+  if (!track || !isValidHttpUrl(track.url)) {
+    return { ok: false, error: "No pude leer una URL válida para esa canción." };
+  }
 
   let state = getMusicState(guildId);
   if (state) {
@@ -263,7 +283,7 @@ export const playCommand = {
       await interaction.respond(
         results.slice(0, 25).map((r) => ({
           name: truncate(`${r.title} • ${r.channel?.name || "Canal desconocido"}`, 100),
-          value: truncate(r.title || focused, 100),
+          value: truncate(r.url || focused, 100),
         })),
       );
     } catch (err) {
@@ -301,52 +321,42 @@ export const playCommand = {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     try {
-      const results = await searchMusicByName(query, SEARCH_LIMIT);
-
-      const tracks = (results || [])
-        .filter((r) => r?.url)
-        .map(buildTrackFromResult)
-        .slice(0, SEARCH_LIMIT);
-
-      if (tracks.length === 0) {
-        await interaction.editReply({
-          content: BOT_MESSAGES.music.noResults,
-          components: [],
-        });
-        return;
+      let selectedTrack;
+      if (isValidHttpUrl(query)) {
+        selectedTrack = {
+          title: "Canción seleccionada",
+          url: query,
+          duration: "desconocida",
+        };
+      } else {
+        const results = await searchMusicByName(query, SEARCH_LIMIT);
+        const tracks = (results || [])
+          .map(buildTrackFromResult)
+          .filter((t) => isValidHttpUrl(t.url))
+          .slice(0, SEARCH_LIMIT);
+        if (tracks.length === 0) {
+          await interaction.editReply({
+            content: BOT_MESSAGES.music.noResults,
+          });
+          return;
+        }
+        selectedTrack = tracks[0];
       }
 
-      const token = Math.random().toString(36).slice(2, 10);
-      pendingSearches.set(token, {
-        userId: interaction.user.id,
-        guildId: interaction.guild.id,
-        tracks,
-      });
-      setTimeout(() => pendingSearches.delete(token), SEARCH_CACHE_TTL_MS);
-
-      const menu = new StringSelectMenuBuilder()
-        .setCustomId(`music:pick:${token}`)
-        .setPlaceholder("Elige una canción")
-        .setMinValues(1)
-        .setMaxValues(1)
-        .addOptions(
-          tracks.map((t, idx) => ({
-            label: truncate(t.title, 100),
-            description: truncate(t.duration, 100),
-            value: String(idx),
-          })),
-        );
-      const row = new ActionRowBuilder().addComponents(menu);
-
+      const result = await enqueueTrack(interaction, selectedTrack);
+      if (!result.ok) {
+        await interaction.editReply({ content: result.error });
+        return;
+      }
       await interaction.editReply({
-        content: BOT_MESSAGES.music.pickTrack,
-        components: [row],
+        content: result.startedNow
+          ? BOT_MESSAGES.music.playNow(selectedTrack.title)
+          : BOT_MESSAGES.music.queued(selectedTrack.title),
       });
     } catch (err) {
       console.error("[music] /play search:", err);
       await interaction.editReply({
         content: BOT_MESSAGES.music.searchError,
-        components: [],
       });
     }
   },
@@ -448,59 +458,5 @@ export const leaveCommand = {
 };
 
 export async function handleMusicInteraction(interaction) {
-  if (!interaction.isStringSelectMenu()) return false;
-  if (!interaction.customId.startsWith("music:pick:")) return false;
-
-  const token = interaction.customId.slice("music:pick:".length);
-  const pending = pendingSearches.get(token);
-  if (!pending) {
-    await interaction.update({
-      content: BOT_MESSAGES.music.pickerExpired,
-      components: [],
-    });
-    return true;
-  }
-
-  if (!interaction.inGuild() || interaction.guild.id !== pending.guildId) {
-    await interaction.update({
-      content: BOT_MESSAGES.music.pickerOtherGuild,
-      components: [],
-    });
-    return true;
-  }
-  if (interaction.user.id !== pending.userId) {
-    await interaction.reply({
-      flags: MessageFlags.Ephemeral,
-      content: BOT_MESSAGES.music.pickerOnlyAuthor,
-    });
-    return true;
-  }
-
-  const index = Number(interaction.values?.[0]);
-  const track = pending.tracks[index];
-  if (!track) {
-    await interaction.update({
-      content: BOT_MESSAGES.music.pickerInvalid,
-      components: [],
-    });
-    return true;
-  }
-
-  const result = await enqueueTrack(interaction, track);
-  if (!result.ok) {
-    await interaction.update({
-      content: result.error,
-      components: [],
-    });
-    return true;
-  }
-
-  pendingSearches.delete(token);
-  await interaction.update({
-    content: result.startedNow
-      ? BOT_MESSAGES.music.playNow(track.title)
-      : BOT_MESSAGES.music.queued(track.title),
-    components: [],
-  });
-  return true;
+  return false;
 }
