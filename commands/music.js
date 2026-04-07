@@ -65,56 +65,66 @@ function sortMusicLike(results) {
 }
 
 async function searchMusicByName(query, limit = SEARCH_LIMIT) {
-  try {
-    const raw = await play.search(query, {
-      source: { youtube: "video" },
-      limit: Math.max(limit * 2, 12),
-    });
-    const onlyVideos = (raw || []).filter(
-      (r) => r?.url && !r?.url.includes("playlist"),
-    );
-    return sortMusicLike(onlyVideos).slice(0, limit);
-  } catch (err) {
-    // Fallback cuando play-dl no puede parsear algunos resultados de YouTube.
-    console.warn("[music] play-dl search fallback:", err?.message || err);
-    const endpoints = [
-      "https://piped.video/api/v1/search",
-      "https://pipedapi.adminforge.de/search",
-    ];
+  const targetLimit = Math.max(limit * 2, 12);
+  const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36",
+      Accept: "text/html,application/xhtml+xml",
+      "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+    },
+  });
+  if (!res.ok) throw new Error(`YouTube search HTTP ${res.status}`);
+  const html = await res.text();
 
-    for (const base of endpoints) {
-      try {
-        const url = `${base}?q=${encodeURIComponent(query)}&filter=videos`;
-        const res = await fetch(url, {
-          headers: { "User-Agent": "ParadaisuBot/1.0 (+music-fallback)" },
-        });
-        if (!res.ok) continue;
-        const data = await res.json();
-        const rows = Array.isArray(data) ? data : [];
-        const mapped = rows
-          .filter((x) => x?.type === "stream" && x?.url && x?.title)
-          .slice(0, Math.max(limit * 2, 12))
-          .map((x) => ({
-            title: x.title,
-            url: x.url.startsWith("http") ? x.url : `https://youtube.com${x.url}`,
-            durationRaw:
-              typeof x.duration === "number" && x.duration > 0
-                ? `${Math.floor(x.duration / 60)}:${String(x.duration % 60).padStart(2, "0")}`
-                : "desconocida",
-            durationInSec:
-              typeof x.duration === "number" && Number.isFinite(x.duration)
-                ? x.duration
-                : undefined,
-            channel: { name: x.uploaderName || "" },
-          }));
-        if (mapped.length > 0) return sortMusicLike(mapped).slice(0, limit);
-      } catch (fallbackErr) {
-        console.warn("[music] http fallback failed:", fallbackErr?.message || fallbackErr);
-      }
+  const marker = "var ytInitialData = ";
+  const markerIndex = html.indexOf(marker);
+  if (markerIndex < 0) throw new Error("No ytInitialData marker");
+  const start = markerIndex + marker.length;
+  const end = html.indexOf(";</script>", start);
+  if (end < 0) throw new Error("No ytInitialData end");
+  const jsonText = html.slice(start, end);
+  const initialData = JSON.parse(jsonText);
+
+  const videos = [];
+  const stack = [initialData];
+  while (stack.length > 0 && videos.length < targetLimit) {
+    const node = stack.pop();
+    if (!node || typeof node !== "object") continue;
+
+    if (node.videoRenderer?.videoId) {
+      videos.push(node.videoRenderer);
+      continue;
     }
 
-    throw err;
+    if (Array.isArray(node)) {
+      for (const item of node) stack.push(item);
+      continue;
+    }
+    for (const value of Object.values(node)) stack.push(value);
   }
+
+  const mapped = videos
+    .map((v) => {
+      const title =
+        v?.title?.runs?.map((r) => r?.text).filter(Boolean).join("") ||
+        v?.title?.simpleText ||
+        "Sin título";
+      const channelName =
+        v?.ownerText?.runs?.[0]?.text || v?.longBylineText?.runs?.[0]?.text || "";
+      const durationRaw = v?.lengthText?.simpleText || "desconocida";
+      return {
+        title,
+        url: `https://www.youtube.com/watch?v=${v.videoId}`,
+        durationRaw,
+        channel: { name: channelName },
+      };
+    })
+    .filter((x) => x.url && x.title);
+
+  if (mapped.length === 0) throw new Error("No video results parsed");
+  return sortMusicLike(mapped).slice(0, limit);
 }
 
 function getMusicState(guildId) {
