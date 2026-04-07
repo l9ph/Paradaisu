@@ -20,6 +20,7 @@ import play from "play-dl";
 
 const SEARCH_LIMIT = 10;
 const SEARCH_CACHE_TTL_MS = 90_000;
+const AUTOCOMPLETE_LIMIT = 10;
 
 const pendingSearches = new Map();
 const musicStates = new Map();
@@ -37,6 +38,39 @@ function buildTrackFromResult(r) {
 function truncate(text, max = 100) {
   if (!text) return "";
   return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
+}
+
+function scoreMusicLikeResult(item) {
+  const title = String(item?.title || "").toLowerCase();
+  const channel = String(item?.channel?.name || "").toLowerCase();
+  let score = 0;
+
+  // Priorizamos resultados tipo YouTube Music (Topic / audio oficial).
+  if (channel.endsWith(" - topic")) score += 8;
+  if (title.includes("official audio")) score += 5;
+  if (title.includes("audio oficial")) score += 5;
+  if (title.includes("audio")) score += 2;
+
+  // Penalizamos videos más "visuales" para alejarse de videos normales.
+  if (title.includes("official video")) score -= 6;
+  if (title.includes("video oficial")) score -= 6;
+  if (title.includes("lyric")) score -= 2;
+  if (title.includes("en vivo") || title.includes("live")) score -= 2;
+
+  return score;
+}
+
+function sortMusicLike(results) {
+  return [...results].sort((a, b) => scoreMusicLikeResult(b) - scoreMusicLikeResult(a));
+}
+
+async function searchMusicByName(query, limit = SEARCH_LIMIT) {
+  const raw = await play.search(query, {
+    source: { youtube: "video" },
+    limit: Math.max(limit * 2, 12),
+  });
+  const onlyVideos = (raw || []).filter((r) => r?.url && !r?.url.includes("playlist"));
+  return sortMusicLike(onlyVideos).slice(0, limit);
 }
 
 function getMusicState(guildId) {
@@ -158,9 +192,31 @@ export const playCommand = {
     .addStringOption((option) =>
       option
         .setName("music")
-        .setDescription("Nombre o URL")
+        .setDescription("Nombre de canción o artista")
+        .setAutocomplete(true)
         .setRequired(true),
     ),
+
+  async autocomplete(interaction) {
+    const focused = interaction.options.getFocused()?.trim();
+    if (!focused || focused.length < 2) {
+      await interaction.respond([]);
+      return;
+    }
+
+    try {
+      const results = await searchMusicByName(focused, AUTOCOMPLETE_LIMIT);
+      await interaction.respond(
+        results.slice(0, 25).map((r) => ({
+          name: truncate(`${r.title} • ${r.channel?.name || "Canal desconocido"}`, 100),
+          value: truncate(r.title || focused, 100),
+        })),
+      );
+    } catch (err) {
+      console.error("[music] autocomplete:", err);
+      await interaction.respond([]);
+    }
+  },
 
   async execute(interaction) {
     if (!interaction.inGuild()) {
@@ -191,10 +247,7 @@ export const playCommand = {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     try {
-      const results = await play.search(query, {
-        source: { youtube: "video" },
-        limit: SEARCH_LIMIT,
-      });
+      const results = await searchMusicByName(query, SEARCH_LIMIT);
 
       const tracks = (results || [])
         .filter((r) => r?.url)
