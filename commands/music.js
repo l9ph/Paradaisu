@@ -20,8 +20,14 @@ const SEARCH_LIMIT = 10;
 const AUTOCOMPLETE_LIMIT = 10;
 const MAX_RATE_LIMIT_RETRIES = 2;
 const RATE_LIMIT_RETRY_MS = 5000;
+const YOUTUBE_COOKIE = process.env.YOUTUBE_COOKIE?.trim();
+const PLAYDL_USERAGENTS = (process.env.PLAYDL_USERAGENTS || "")
+  .split("||")
+  .map((x) => x.trim())
+  .filter(Boolean);
 
 const musicStates = new Map();
+let playDlSetupPromise;
 
 function buildTrackFromResult(r) {
   const fallbackVideoId = r?.videoId;
@@ -151,6 +157,27 @@ function isRateLimitedError(err) {
   return msg.includes("429") || msg.includes("rate limit");
 }
 
+function isBotCheckError(err) {
+  const msg = String(err?.message || err || "").toLowerCase();
+  return msg.includes("confirm you’re not a bot") || msg.includes("confirm you're not a bot");
+}
+
+async function ensurePlayDlSetup() {
+  if (playDlSetupPromise) return playDlSetupPromise;
+  playDlSetupPromise = (async () => {
+    const token = {};
+    if (YOUTUBE_COOKIE) token.youtube = { cookie: YOUTUBE_COOKIE };
+    if (PLAYDL_USERAGENTS.length > 0) token.useragent = PLAYDL_USERAGENTS;
+    if (Object.keys(token).length === 0) return;
+    await play.setToken(token);
+    console.log("[music] play-dl token configurado (cookie/useragent).");
+  })().catch((err) => {
+    playDlSetupPromise = null;
+    console.error("[music] No se pudo configurar play-dl token:", err);
+  });
+  return playDlSetupPromise;
+}
+
 function cleanupGuildState(guildId) {
   const state = musicStates.get(guildId);
   if (!state) return;
@@ -177,6 +204,7 @@ async function playNext(guildId) {
   }
 
   try {
+    await ensurePlayDlSetup();
     const stream = await play.stream(next.url);
     const resource = createAudioResource(stream.stream, { inputType: stream.type });
     state.current = next;
@@ -185,6 +213,15 @@ async function playNext(guildId) {
   } catch (err) {
     console.error("[music] Error reproduciendo track:", err);
     state.current = null;
+    if (isBotCheckError(err)) {
+      console.error(
+        "[music] YouTube pidió validación anti-bot. Configura YOUTUBE_COOKIE en .env para estabilizar reproducción.",
+      );
+      setTimeout(() => {
+        void playNext(guildId);
+      }, 500);
+      return;
+    }
     if (isRateLimitedError(err)) {
       const retries = Number(next?._retries || 0);
       if (retries < MAX_RATE_LIMIT_RETRIES) {
@@ -300,6 +337,7 @@ export const playCommand = {
     }
 
     try {
+      await ensurePlayDlSetup();
       const results = await searchMusicByName(focused, AUTOCOMPLETE_LIMIT);
       await interaction.respond(
         results.slice(0, 25).map((r) => ({
@@ -342,6 +380,7 @@ export const playCommand = {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     try {
+      await ensurePlayDlSetup();
       let selectedTrack;
       if (isValidHttpUrl(query)) {
         selectedTrack = {

@@ -14,13 +14,6 @@ import {
   handleAutorolInteraction,
 } from "./commands/autorol.js";
 import { anuncioCommand } from "./commands/anuncio.js";
-import {
-  handleMusicInteraction,
-  leaveCommand,
-  playCommand,
-  skipCommand,
-  stopCommand,
-} from "./commands/music.js";
 import { ticketCommand, handleTicketInteraction } from "./commands/ticket.js";
 import { verifyCommand } from "./commands/verify.js";
 
@@ -37,10 +30,6 @@ const commandModules = [
   ticketCommand,
   autorolCommand,
   anuncioCommand,
-  playCommand,
-  skipCommand,
-  stopCommand,
-  leaveCommand,
   allyCommand,
   bossCommand,
   banCommand,
@@ -141,8 +130,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (await handleAllyInteraction(interaction)) return;
 
     if (await handleAutorolInteraction(interaction)) return;
-
-    if (await handleMusicInteraction(interaction)) return;
 
     if (await handleTicketInteraction(interaction)) return;
 
