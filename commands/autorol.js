@@ -140,6 +140,13 @@ async function assignConfigurableRoles({
   values,
   mode,
 }) {
+  const respond = async (content) => {
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    }
+    await interaction.editReply({ content, components: [] });
+  };
+
   const selected = new Set(values);
   const toAdd = entries.filter((e) => selected.has(e.value) && e.roleId?.trim());
   const missingConfig = entries.filter(
@@ -147,13 +154,11 @@ async function assignConfigurableRoles({
   );
 
   if (toAdd.length === 0) {
-    await interaction.reply({
-      flags: MessageFlags.Ephemeral,
-      content:
-        missingConfig.length > 0
-          ? BOT_MESSAGES.autorol.roleMissingConfig
-          : BOT_MESSAGES.autorol.noConfiguredRoles,
-    });
+    await respond(
+      missingConfig.length > 0
+        ? BOT_MESSAGES.autorol.roleMissingConfig
+        : BOT_MESSAGES.autorol.noConfiguredRoles,
+    );
     return;
   }
 
@@ -163,17 +168,11 @@ async function assignConfigurableRoles({
   for (const { roleId, label } of toAdd) {
     const role = interaction.guild.roles.cache.get(roleId.trim());
     if (!role) {
-      await interaction.reply({
-        flags: MessageFlags.Ephemeral,
-        content: BOT_MESSAGES.autorol.roleDoesNotExist(label),
-      });
+      await respond(BOT_MESSAGES.autorol.roleDoesNotExist(label));
       return;
     }
     if (me.roles.highest.comparePositionTo(role) <= 0) {
-      await interaction.reply({
-        flags: MessageFlags.Ephemeral,
-        content: BOT_MESSAGES.autorol.roleHierarchyError,
-      });
+      await respond(BOT_MESSAGES.autorol.roleHierarchyError);
       return;
     }
   }
@@ -227,10 +226,7 @@ async function assignConfigurableRoles({
           )
         : BOT_MESSAGES.autorol.assignedColor(opt.label);
 
-      await interaction.reply({
-        flags: MessageFlags.Ephemeral,
-        content,
-      });
+      await respond(content);
       return;
     }
 
@@ -245,10 +241,7 @@ async function assignConfigurableRoles({
       );
       if (missingLabels)
         msg += BOT_MESSAGES.autorol.missingSomeRoles(missingLabels);
-      await interaction.reply({
-        flags: MessageFlags.Ephemeral,
-        content: msg,
-      });
+      await respond(msg);
       return;
     }
 
@@ -263,18 +256,11 @@ async function assignConfigurableRoles({
       );
       if (missingLabels)
         extraMsg += BOT_MESSAGES.autorol.missingSomeRoles(missingLabels);
-      await interaction.reply({
-        flags: MessageFlags.Ephemeral,
-        content: extraMsg,
-      });
+      await respond(extraMsg);
     }
   } catch (err) {
     console.error("[autorol] Asignar roles:", err);
-    await interaction.reply({
-      flags: MessageFlags.Ephemeral,
-      content:
-        BOT_MESSAGES.autorol.assignError,
-    });
+    await respond(BOT_MESSAGES.autorol.assignError);
   }
 }
 

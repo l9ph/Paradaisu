@@ -38,6 +38,10 @@ function memberCanUseTicketWaitButton(member) {
   return member.permissions.has(PermissionFlagsBits.Administrator);
 }
 
+function isDiscordSnowflake(value) {
+  return /^\d{17,20}$/.test(String(value || "").trim());
+}
+
 function slugifyChannelSegment(raw, fallback) {
   const s = String(raw || "")
     .toLowerCase()
@@ -319,14 +323,21 @@ export async function handleTicketInteraction(interaction) {
       });
 
       if (shouldUnlockCreator) {
-        try {
-          await interaction.channel.permissionOverwrites.edit(creatorId, {
-            ViewChannel: true,
-            SendMessages: true,
-            ReadMessageHistory: true,
-          });
-        } catch (err) {
-          console.error("[ticket] No se pudieron actualizar permisos:", err);
+        if (isDiscordSnowflake(creatorId)) {
+          try {
+            await interaction.channel.permissionOverwrites.edit(creatorId, {
+              ViewChannel: true,
+              SendMessages: true,
+              ReadMessageHistory: true,
+            });
+          } catch (err) {
+            console.error("[ticket] No se pudieron actualizar permisos:", err);
+          }
+        } else {
+          console.error(
+            "[ticket] creatorId inválido al desbloquear escritura:",
+            creatorId,
+          );
         }
 
         await interaction.channel.send({
