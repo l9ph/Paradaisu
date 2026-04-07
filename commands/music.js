@@ -17,6 +17,7 @@ import {
   joinVoiceChannel,
 } from "@discordjs/voice";
 import play from "play-dl";
+import yts from "yt-search";
 
 const SEARCH_LIMIT = 10;
 const SEARCH_CACHE_TTL_MS = 90_000;
@@ -65,12 +66,31 @@ function sortMusicLike(results) {
 }
 
 async function searchMusicByName(query, limit = SEARCH_LIMIT) {
-  const raw = await play.search(query, {
-    source: { youtube: "video" },
-    limit: Math.max(limit * 2, 12),
-  });
-  const onlyVideos = (raw || []).filter((r) => r?.url && !r?.url.includes("playlist"));
-  return sortMusicLike(onlyVideos).slice(0, limit);
+  try {
+    const raw = await play.search(query, {
+      source: { youtube: "video" },
+      limit: Math.max(limit * 2, 12),
+    });
+    const onlyVideos = (raw || []).filter(
+      (r) => r?.url && !r?.url.includes("playlist"),
+    );
+    return sortMusicLike(onlyVideos).slice(0, limit);
+  } catch (err) {
+    // Fallback cuando play-dl no puede parsear algunos resultados de YouTube.
+    console.warn("[music] play-dl search fallback:", err?.message || err);
+    const out = await yts.search(query);
+    const rawVideos = Array.isArray(out?.videos) ? out.videos : [];
+    const mapped = rawVideos
+      .slice(0, Math.max(limit * 2, 12))
+      .map((v) => ({
+        title: v.title,
+        url: v.url,
+        durationRaw: v.timestamp || "desconocida",
+        durationInSec: Number.isFinite(v.seconds) ? v.seconds : undefined,
+        channel: { name: v.author?.name || "" },
+      }));
+    return sortMusicLike(mapped).slice(0, limit);
+  }
 }
 
 function getMusicState(guildId) {
