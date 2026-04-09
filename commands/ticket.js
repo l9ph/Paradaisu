@@ -35,7 +35,9 @@ function summaryEmbed(title, fields, creatorUser) {
 
 function memberCanUseTicketWaitButton(member) {
   if (!member) return false;
-  return member.permissions.has(PermissionFlagsBits.Administrator);
+  if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
+  const ids = TICKET_STAFF_ROLE_IDS.map((x) => String(x).trim()).filter(Boolean);
+  return ids.some((id) => member.roles.cache.has(id));
 }
 
 function isDiscordSnowflake(value) {
@@ -53,13 +55,7 @@ function slugifyChannelSegment(raw, fallback) {
   return s || String(fallback);
 }
 
-async function createWaitingChannel(
-  guild,
-  creator,
-  embed,
-  ticketTipo,
-  allowCreatorAfterReviewed = false,
-) {
+async function createWaitingChannel(guild, creator, embed, ticketTipo) {
   const tipoSlug = String(ticketTipo).toLowerCase().replace(/[^a-z0-9-]/g, "");
   let member;
   try {
@@ -130,9 +126,7 @@ async function createWaitingChannel(
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(
-        `ticket:reviewed:${creator.id}:${allowCreatorAfterReviewed ? "unlock" : "locked"}`,
-      )
+      .setCustomId(`ticket:reviewed:${creator.id}`)
       .setLabel("Leído")
       .setStyle(ButtonStyle.Success),
   );
@@ -141,12 +135,7 @@ async function createWaitingChannel(
   return channel;
 }
 
-async function submitTicketToChannel(
-  interaction,
-  embed,
-  ticketTipo,
-  allowCreatorAfterReviewed = false,
-) {
+async function submitTicketToChannel(interaction, embed, ticketTipo) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
     const channel = await createWaitingChannel(
@@ -154,7 +143,6 @@ async function submitTicketToChannel(
       interaction.user,
       embed,
       ticketTipo,
-      allowCreatorAfterReviewed,
     );
     await interaction.editReply({
       content: BOT_MESSAGES.ticket.created(channel),
@@ -290,7 +278,7 @@ export async function handleTicketInteraction(interaction) {
       if (!memberCanUseTicketWaitButton(interaction.member)) {
         await interaction.reply({
           content:
-            "Solo los **administradores** del servidor pueden eliminar este canal.",
+            "Solo **administradores** o **staff de tickets** pueden eliminar este canal.",
           flags: MessageFlags.Ephemeral,
         });
         return true;
@@ -305,62 +293,49 @@ export async function handleTicketInteraction(interaction) {
 
     if (interaction.customId.startsWith("ticket:reviewed:")) {
       if (!interaction.inGuild()) return true;
-      const [, , creatorId, unlockMode] = interaction.customId.split(":");
-      const shouldUnlockCreator = unlockMode === "unlock";
+      const parts = interaction.customId.split(":");
+      const creatorId = parts[2];
       if (!memberCanUseTicketWaitButton(interaction.member)) {
         await interaction.reply({
           content:
-            "Solo los **administradores** del servidor pueden usar este botón.",
+            "Solo **administradores** o **staff de tickets** pueden usar este botón.",
           flags: MessageFlags.Ephemeral,
         });
         return true;
       }
 
-      const disabled = ButtonBuilder.from(interaction.component).setDisabled(true);
+      const readDisabled = ButtonBuilder.from(interaction.component).setDisabled(
+        true,
+      );
+      const deleteBtn = new ButtonBuilder()
+        .setCustomId("ticket:delete-channel")
+        .setLabel("Eliminar canal")
+        .setStyle(ButtonStyle.Danger);
+
       await interaction.update({
         embeds: [...interaction.message.embeds],
-        components: [new ActionRowBuilder().addComponents(disabled)],
+        components: [
+          new ActionRowBuilder().addComponents(readDisabled, deleteBtn),
+        ],
       });
 
-      if (shouldUnlockCreator) {
-        if (isDiscordSnowflake(creatorId)) {
-          try {
-            await interaction.channel.permissionOverwrites.edit(creatorId, {
-              ViewChannel: true,
-              SendMessages: true,
-              ReadMessageHistory: true,
-            });
-          } catch (err) {
-            console.error("[ticket] No se pudieron actualizar permisos:", err);
-          }
-        } else {
-          console.error(
-            "[ticket] creatorId inválido al desbloquear escritura:",
-            creatorId,
-          );
+      if (isDiscordSnowflake(creatorId)) {
+        try {
+          await interaction.channel.permissionOverwrites.edit(creatorId, {
+            ViewChannel: true,
+            SendMessages: true,
+            ReadMessageHistory: true,
+          });
+        } catch (err) {
+          console.error("[ticket] No se pudieron actualizar permisos:", err);
         }
-
-        await interaction.channel.send({
-          content: BOT_MESSAGES.ticket.reviewedPvp(creatorId),
-        });
       } else {
-        await interaction.channel.send({
-          content: BOT_MESSAGES.ticket.reviewedDefault(creatorId),
-        });
+        console.error(
+          "[ticket] creatorId inválido al desbloquear escritura:",
+          creatorId,
+        );
       }
 
-      const closeRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("ticket:delete-channel")
-          .setLabel("Eliminar canal")
-          .setStyle(ButtonStyle.Danger),
-      );
-
-      await interaction.channel.send({
-        content:
-          "**Gestión del ticket**\nEste ticket ya fue leído. Si ya no se necesita, puedes eliminar este canal.",
-        components: [closeRow],
-      });
       return true;
     }
 
@@ -683,7 +658,7 @@ export async function handleTicketInteraction(interaction) {
         interaction.user,
       );
 
-      await submitTicketToChannel(interaction, embed, "pvp", estiloRaw === "pvp");
+      await submitTicketToChannel(interaction, embed, "pvp");
       return true;
     }
 
