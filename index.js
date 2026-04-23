@@ -13,7 +13,10 @@ import {
   autorolCommand,
   handleAutorolInteraction,
 } from "./commands/autorol.js";
-import { anuncioCommand } from "./commands/anuncio.js";
+import {
+  anuncioCommand,
+  handleAnuncioInteraction,
+} from "./commands/anuncio.js";
 import { ticketCommand, handleTicketInteraction } from "./commands/ticket.js";
 import { verifyCommand } from "./commands/verify.js";
 
@@ -130,6 +133,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (await handleAllyInteraction(interaction)) return;
 
     if (await handleAutorolInteraction(interaction)) return;
+
+    if (await handleAnuncioInteraction(interaction)) return;
 
     if (await handleTicketInteraction(interaction)) return;
 

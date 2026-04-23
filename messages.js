@@ -25,11 +25,12 @@ export const BOT_MESSAGES = {
   anuncio: {
     channelInvalid: "Usa este comando en un canal de texto o anuncios.",
     emptyMessage: "El mensaje no puede estar vacío.",
+    emptyTitleOrDescription: "Título y descripción no pueden estar vacíos.",
     missingBotPerms:
       "No tengo permiso para ver el canal, enviar mensajes o insertar embeds aquí.",
     sent: "Anuncio publicado.",
     sendError: "No se pudo enviar el anuncio. Revisa permisos del bot y del canal.",
-    title: "Anuncio Paradaisu",
+    modalTitle: "Anuncio Paradaisu",
     footer: "Paradaisu",
   },
 
@@ -65,10 +66,9 @@ export const BOT_MESSAGES = {
     created: (channel) => `Ticket creado. Tu canal: ${channel}`,
     panelSent: (channel) => `Prueba publicada en ${channel}.`,
     deletedByAdmin: "Canal eliminado por administración.",
-    reviewedPvp: (creatorId) =>
-      `<@${creatorId}> tu ticket fue leído, ahora podrás ponerte de acuerdo con un Hoster.`,
-    reviewedDefault: (creatorId) =>
-      `<@${creatorId}> tu ticket fue leído. Espera respuesta.`,
+    /** Tras pulsar Leído: aviso al creador en el canal del ticket. */
+    readNoticeForCreator: (creatorId) =>
+      `<@${creatorId}> **Tu ticket ha sido leído**. Mantente atento al chat.`,
   },
 
   verify: {

@@ -336,6 +336,12 @@ export async function handleTicketInteraction(interaction) {
         );
       }
 
+      if (isDiscordSnowflake(creatorId)) {
+        await interaction.channel.send({
+          content: BOT_MESSAGES.ticket.readNoticeForCreator(creatorId),
+        });
+      }
+
       return true;
     }
 
