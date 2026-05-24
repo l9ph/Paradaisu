@@ -5,7 +5,6 @@ import {
   ButtonStyle,
   Events,
   MessageFlags,
-  PermissionFlagsBits,
   SlashCommandBuilder,
 } from "discord.js";
 import {
@@ -351,7 +350,6 @@ export const ttsCommand = {
     .setName("tts")
     .setDescription("TTS en canal de voz: unirse o elegir tu agente de voz.")
     .setDMPermission(false)
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addSubcommand((sub) =>
       sub
         .setName("join")
