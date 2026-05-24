@@ -29,13 +29,6 @@ import {
   ttsCommand,
 } from "./commands/tts.js";
 import { preloadEdgeVoices } from "./lib/edgeVoices.js";
-import {
-  handleMusicInteraction,
-  leaveCommand,
-  playCommand,
-  skipCommand,
-  stopCommand,
-} from "./commands/music.js";
 import { verifyCommand } from "./commands/verify.js";
 
 const token = process.env.DISCORD_TOKEN;
@@ -53,10 +46,6 @@ const commandModules = [
   anuncioCommand,
   gankCommand,
   ttsCommand,
-  playCommand,
-  skipCommand,
-  stopCommand,
-  leaveCommand,
   allyCommand,
   bossCommand,
   banCommand,
@@ -178,8 +167,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (await handleGankInteraction(interaction)) return;
 
     if (await handleTtsInteraction(interaction)) return;
-
-    if (await handleMusicInteraction(interaction)) return;
 
     if (await handleTicketInteraction(interaction)) return;
 

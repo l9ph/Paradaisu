@@ -252,19 +252,6 @@ function stopTtsSession(guildId) {
   return session;
 }
 
-export function stopTtsForGuild(guildId) {
-  return stopTtsSession(guildId);
-}
-
-async function stopActiveMusic(guildId) {
-  try {
-    const { stopMusicForGuild } = await import("./music.js");
-    stopMusicForGuild(guildId);
-  } catch (err) {
-    console.error("[tts] stop music:", err);
-  }
-}
-
 function shouldReadMessage(message, session, member) {
   if (!session.listenChannelIds.has(message.channelId)) return false;
   if (message.channelId === session.voiceChannelId) return true;
@@ -456,7 +443,6 @@ async function executeTtsJoin(interaction) {
 
   const guildId = interaction.guild.id;
   stopTtsSession(guildId);
-  await stopActiveMusic(guildId);
 
   const connection = joinVoiceChannel({
     guildId,

@@ -190,10 +190,6 @@ function cleanupGuildState(guildId) {
   musicStates.delete(guildId);
 }
 
-export function stopMusicForGuild(guildId) {
-  cleanupGuildState(guildId);
-}
-
 async function playNext(guildId) {
   const state = musicStates.get(guildId);
   if (!state) return;
@@ -282,21 +278,10 @@ function createGuildState(interaction, voiceChannelId) {
   return state;
 }
 
-async function stopActiveTts(guildId) {
-  try {
-    const { stopTtsForGuild } = await import("./tts.js");
-    stopTtsForGuild(guildId);
-  } catch (err) {
-    console.error("[music] stop tts:", err);
-  }
-}
-
 async function enqueueTrack(interaction, track) {
   const guildId = interaction.guild.id;
   const memberVoice = interaction.member?.voice?.channel;
   if (!memberVoice) return { ok: false, error: BOT_MESSAGES.music.mustBeInVoice };
-
-  await stopActiveTts(guildId);
   if (!track || !isValidHttpUrl(track.url)) {
     return { ok: false, error: "No pude leer una URL válida para esa canción." };
   }
