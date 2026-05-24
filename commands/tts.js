@@ -20,7 +20,7 @@ import {
 } from "@discordjs/voice";
 import { MongoClient } from "mongodb";
 import ffmpegStatic from "ffmpeg-static";
-import { tts } from "edge-tts/out/index.js";
+import { synthesizeEdgeTts } from "../lib/edgeTts.js";
 import { BOT_MESSAGES } from "../messages.js";
 
 const TTS_STOP_CUSTOM_ID = "tts:stop";
@@ -122,7 +122,7 @@ async function playOnPlayer(player, resource) {
 
 async function speakText(session, text, userId) {
   const voice = await getUserEdgeVoice(userId);
-  const audioBuffer = await tts(text, { voice });
+  const audioBuffer = await synthesizeEdgeTts(text, { voice });
   const stream = Readable.from(audioBuffer);
   const resource = createAudioResource(stream, {
     inputType: StreamType.Arbitrary,
