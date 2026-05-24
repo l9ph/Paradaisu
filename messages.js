@@ -54,22 +54,38 @@ export const BOT_MESSAGES = {
 
   tts: {
     mustBeInVoice: "Debes estar en un canal de voz para usar `/tts join`.",
-    textChannelRequired: "Usa `/tts join` en el canal de texto que quieres que se lea.",
+    textChannelRequired: "Usa `/tts join` en un canal de texto.",
     generateError: "No pude generar el audio para ese mensaje.",
     playError: "No pude conectarme al canal de voz.",
-    started: (voiceChannel) =>
-      `TTS activo en **${voiceChannel.name}**. Escribe en el chat de ese canal de voz y lo leeré con la voz de cada usuario (por defecto español). Usa \`/tts idioma\` para cambiar la tuya.`,
-    stopped: "TTS desactivado. Salí del canal de voz.",
+    joinAck: (voiceChannel) =>
+      `TTS activado. Aviso publicado en este canal (voz: **${voiceChannel.name}**).`,
+    embedActiveTitle: "TTS Activo",
+    embedActiveBody: (voiceChannel) => `Canal: **${voiceChannel.name}**`,
+    embedStoppedTitle: "TTS Desactivado",
     notActive: "No hay TTS activo en este servidor.",
-    stopOnlyHost: "Solo quien usó `/tts join` puede detenerlo.",
-    stopButton: "Detener TTS",
+    stopButton: "Sacar al bot",
     readLine: (displayName, text) => `${displayName} dijo ${text}`,
     mongoMissing:
       "Falta configurar `MONGODB_URI` en `.env` para guardar tu agente de voz.",
-    voiceSaved: (personaName) =>
-      `Tu agente de voz quedó en **${personaName}**. No entré a ningún canal; usa \`/tts join\` cuando quieras TTS en voz.`,
+    voicePickerIntroTitle: "Elegir voz TTS",
+    voicePickerIntroBody:
+      "Pulsa **Buscar voz** y escribe un idioma o nombre (ej. `español`, `japon`, `elvira`). Luego elige en la lista (hasta 25 resultados).",
+    voiceSearchButton: "Buscar voz",
+    voiceModalTitle: "Buscar voz Edge",
+    voiceModalLabel: "Idioma o nombre de voz",
+    voiceModalPlaceholder: "español, japones, mexico, jenny…",
+    voicePickerTitle: "Resultados",
+    voicePickerBody: (query, count) =>
+      `Búsqueda: **${query}**\n${count} voz/voces encontradas. Elige una:`,
+    voiceSelectPlaceholder: "Elige tu voz",
+    voiceSavedTitle: "Voz guardada",
+    voiceSavedBody: (label) => `Tu agente de voz: **${label}**`,
     voiceSaveError: "No pude guardar tu agente de voz. Intenta de nuevo.",
-    voiceNotFound: "Ese agente de voz no existe.",
+    voiceNotFound: "Esa voz no es válida.",
+    voiceNoResults: (query) =>
+      `No encontré voces para **${query}**. Prueba con otro idioma o nombre.`,
+    voicesLoadError:
+      "No pude cargar el catálogo de voces de Edge. Intenta de nuevo en unos segundos.",
   },
 
   music: {

@@ -3,9 +3,15 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  Colors,
+  EmbedBuilder,
   Events,
   MessageFlags,
+  ModalBuilder,
   SlashCommandBuilder,
+  StringSelectMenuBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } from "discord.js";
 import {
   AudioPlayerStatus,
@@ -19,32 +25,26 @@ import {
 } from "@discordjs/voice";
 import { MongoClient } from "mongodb";
 import ffmpegStatic from "ffmpeg-static";
-import { synthesizeEdgeTts } from "../lib/edgeTts.js";
+import { prepareTextForSpeech, synthesizeEdgeTts } from "../lib/edgeTts.js";
+import {
+  DEFAULT_VOICE_ID,
+  displayNameForVoiceId,
+  ensureEdgeVoicesLoaded,
+  getEdgeVoice,
+  isValidEdgeVoiceId,
+  resolveStoredVoiceId,
+  searchEdgeVoiceChoices,
+} from "../lib/edgeVoices.js";
 import { BOT_MESSAGES } from "../messages.js";
 
 const TTS_STOP_CUSTOM_ID = "tts:stop";
+const TTS_VOICE_SEARCH_ID = "tts:voice-search";
+const TTS_VOICE_MODAL_ID = "tts:voice-modal";
+const TTS_VOICE_SELECT_ID = "tts:voice-select";
 const TTS_VOICES_COLLECTION = "tts_voices";
 const MAX_READ_LENGTH = 500;
 
-/** Agente de voz Edge (persona) → nombre neural de Microsoft */
-export const TTS_VOICE_PERSONAS = [
-  { id: "elvira", name: "Elvira (España)", voice: "es-ES-ElviraNeural" },
-  { id: "alvaro", name: "Álvaro (España)", voice: "es-ES-AlvaroNeural" },
-  { id: "dalia", name: "Dalia (México)", voice: "es-MX-DaliaNeural" },
-  { id: "jorge", name: "Jorge (México)", voice: "es-MX-JorgeNeural" },
-  { id: "jenny", name: "Jenny (EE. UU.)", voice: "en-US-JennyNeural" },
-  { id: "guy", name: "Guy (EE. UU.)", voice: "en-US-GuyNeural" },
-  { id: "sonia", name: "Sonia (Reino Unido)", voice: "en-GB-SoniaNeural" },
-  { id: "francisca", name: "Francisca (Brasil)", voice: "pt-BR-FranciscaNeural" },
-  { id: "antonio", name: "Antônio (Brasil)", voice: "pt-BR-AntonioNeural" },
-  { id: "denise", name: "Denise (Francia)", voice: "fr-FR-DeniseNeural" },
-  { id: "henri", name: "Henri (Francia)", voice: "fr-FR-HenriNeural" },
-];
-
-const DEFAULT_VOICE_PERSONA = TTS_VOICE_PERSONAS[0];
-const personaById = new Map(TTS_VOICE_PERSONAS.map((p) => [p.id, p]));
-
-/** @type {Map<string, { guildId: string, listenChannelIds: Set<string>, voiceChannelId: string, hostUserId: string, connection: import('@discordjs/voice').VoiceConnection, player: import('@discordjs/voice').AudioPlayer, queue: { text: string, userId: string }[], processing: boolean }>} */
+/** @type {Map<string, { guildId: string, listenChannelIds: Set<string>, voiceChannelId: string, hostUserId: string, statusChannelId?: string, statusMessageId?: string, connection: import('@discordjs/voice').VoiceConnection, player: import('@discordjs/voice').AudioPlayer, queue: { text: string, userId: string }[], processing: boolean }>} */
 const ttsSessions = new Map();
 
 /** @type {Map<string, string>} userId → Edge voice name */
@@ -78,39 +78,102 @@ async function getTtsVoicesCollection() {
   return mongoDb.collection(TTS_VOICES_COLLECTION);
 }
 
-function edgeVoiceForPersonaId(personaId) {
-  const persona = personaById.get(personaId);
-  return persona?.voice ?? DEFAULT_VOICE_PERSONA.voice;
-}
-
 export async function getUserEdgeVoice(userId) {
   const cached = voiceCache.get(userId);
   if (cached) return cached;
 
   if (!mongoConfigOk()) {
-    return DEFAULT_VOICE_PERSONA.voice;
+    return DEFAULT_VOICE_ID;
   }
 
   try {
     const col = await getTtsVoicesCollection();
     const doc = await col.findOne({ userId });
-    const voice = edgeVoiceForPersonaId(doc?.personaId);
+    const voice = resolveStoredVoiceId(doc);
     voiceCache.set(userId, voice);
     return voice;
   } catch (err) {
     console.error("[tts] mongo get:", err);
-    return DEFAULT_VOICE_PERSONA.voice;
+    return DEFAULT_VOICE_ID;
   }
 }
 
-async function saveUserVoicePersona(userId, personaId) {
+async function saveUserVoice(userId, voiceId) {
   const col = await getTtsVoicesCollection();
   await col.updateOne(
     { userId },
-    { $set: { userId, personaId, updatedAt: new Date() } },
+    {
+      $set: { userId, voiceId, updatedAt: new Date() },
+      $unset: { personaId: "" },
+    },
     { upsert: true },
   );
-  voiceCache.set(userId, edgeVoiceForPersonaId(personaId));
+  voiceCache.set(userId, voiceId);
+}
+
+function activeTtsEmbed(voiceChannel) {
+  return new EmbedBuilder()
+    .setColor(Colors.Green)
+    .setTitle(BOT_MESSAGES.tts.embedActiveTitle)
+    .setDescription(BOT_MESSAGES.tts.embedActiveBody(voiceChannel));
+}
+
+function stoppedTtsEmbed() {
+  return new EmbedBuilder()
+    .setColor(Colors.DarkGrey)
+    .setTitle(BOT_MESSAGES.tts.embedStoppedTitle);
+}
+
+function voicePickerEmbed(query, resultCount) {
+  return new EmbedBuilder()
+    .setColor(Colors.Blurple)
+    .setTitle(BOT_MESSAGES.tts.voicePickerTitle)
+    .setDescription(BOT_MESSAGES.tts.voicePickerBody(query, resultCount));
+}
+
+function voiceSavedEmbed(label) {
+  return new EmbedBuilder()
+    .setColor(Colors.Green)
+    .setTitle(BOT_MESSAGES.tts.voiceSavedTitle)
+    .setDescription(BOT_MESSAGES.tts.voiceSavedBody(label));
+}
+
+function stopButtonRow() {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(TTS_STOP_CUSTOM_ID)
+        .setLabel(BOT_MESSAGES.tts.stopButton)
+        .setStyle(ButtonStyle.Danger),
+    ),
+  ];
+}
+
+function voiceSearchButtonRow() {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(TTS_VOICE_SEARCH_ID)
+        .setLabel(BOT_MESSAGES.tts.voiceSearchButton)
+        .setStyle(ButtonStyle.Primary),
+    ),
+  ];
+}
+
+function voiceSelectRow(choices) {
+  return [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(TTS_VOICE_SELECT_ID)
+        .setPlaceholder(BOT_MESSAGES.tts.voiceSelectPlaceholder)
+        .addOptions(
+          choices.map((c) => ({
+            label: c.name,
+            value: c.value,
+          })),
+        ),
+    ),
+  ];
 }
 
 async function playOnPlayer(player, resource) {
@@ -163,17 +226,6 @@ function stopTtsSession(guildId) {
   return session;
 }
 
-function stopButtonRow() {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(TTS_STOP_CUSTOM_ID)
-        .setLabel(BOT_MESSAGES.tts.stopButton)
-        .setStyle(ButtonStyle.Danger),
-    ),
-  ];
-}
-
 function shouldReadMessage(message, session, member) {
   if (!session.listenChannelIds.has(message.channelId)) return false;
   if (message.channelId === session.voiceChannelId) return true;
@@ -197,7 +249,10 @@ async function handleTtsChatMessage(message) {
   const displayName =
     member?.displayName ?? message.author.displayName ?? message.author.username;
 
-  const line = BOT_MESSAGES.tts.readLine(displayName, content);
+  const spokenContent = prepareTextForSpeech(content);
+  if (!spokenContent) return;
+
+  const line = BOT_MESSAGES.tts.readLine(displayName, spokenContent);
   enqueueTts(session, line.slice(0, MAX_READ_LENGTH), message.author.id);
 }
 
@@ -210,10 +265,7 @@ export function registerTtsMessageHandler(client) {
   });
 }
 
-export async function handleTtsInteraction(interaction) {
-  if (!interaction.isButton()) return false;
-  if (interaction.customId !== TTS_STOP_CUSTOM_ID) return false;
-
+async function handleTtsStopButton(interaction) {
   const session = ttsSessions.get(interaction.guildId);
   if (!session) {
     await interaction.reply({
@@ -223,20 +275,126 @@ export async function handleTtsInteraction(interaction) {
     return true;
   }
 
-  if (interaction.user.id !== session.hostUserId) {
+  stopTtsSession(interaction.guildId);
+
+  await interaction.update({
+    embeds: [stoppedTtsEmbed()],
+    components: [],
+  });
+  return true;
+}
+
+function voiceSearchModal() {
+  return new ModalBuilder()
+    .setCustomId(TTS_VOICE_MODAL_ID)
+    .setTitle(BOT_MESSAGES.tts.voiceModalTitle)
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId("query")
+          .setLabel(BOT_MESSAGES.tts.voiceModalLabel)
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMaxLength(80)
+          .setPlaceholder(BOT_MESSAGES.tts.voiceModalPlaceholder),
+      ),
+    );
+}
+
+async function handleTtsVoiceSearchButton(interaction) {
+  await interaction.showModal(voiceSearchModal());
+  return true;
+}
+
+async function handleTtsVoiceModal(interaction) {
+  const query = interaction.fields.getTextInputValue("query").trim();
+
+  try {
+    await ensureEdgeVoicesLoaded();
+  } catch (err) {
+    console.error("[tts] voces:", err);
     await interaction.reply({
       flags: MessageFlags.Ephemeral,
-      content: BOT_MESSAGES.tts.stopOnlyHost,
+      content: BOT_MESSAGES.tts.voicesLoadError,
     });
     return true;
   }
 
-  stopTtsSession(interaction.guildId);
+  const choices = searchEdgeVoiceChoices(query);
+  if (choices.length === 0) {
+    await interaction.reply({
+      flags: MessageFlags.Ephemeral,
+      content: BOT_MESSAGES.tts.voiceNoResults(query),
+    });
+    return true;
+  }
+
+  await interaction.reply({
+    flags: MessageFlags.Ephemeral,
+    embeds: [voicePickerEmbed(query, choices.length)],
+    components: voiceSelectRow(choices),
+  });
+  return true;
+}
+
+async function handleTtsVoiceSelect(interaction) {
+  const voiceId = interaction.values[0];
+
+  if (!isValidEdgeVoiceId(voiceId)) {
+    await interaction.reply({
+      flags: MessageFlags.Ephemeral,
+      content: BOT_MESSAGES.tts.voiceNotFound,
+    });
+    return true;
+  }
+
+  if (!mongoConfigOk()) {
+    await interaction.reply({
+      flags: MessageFlags.Ephemeral,
+      content: BOT_MESSAGES.tts.mongoMissing,
+    });
+    return true;
+  }
+
+  try {
+    await saveUserVoice(interaction.user.id, voiceId);
+  } catch (err) {
+    console.error("[tts] mongo save:", err);
+    await interaction.reply({
+      flags: MessageFlags.Ephemeral,
+      content: BOT_MESSAGES.tts.voiceSaveError,
+    });
+    return true;
+  }
+
+  const label = displayNameForVoiceId(voiceId);
+
   await interaction.update({
-    content: BOT_MESSAGES.tts.stopped,
+    embeds: [voiceSavedEmbed(label)],
     components: [],
   });
   return true;
+}
+
+export async function handleTtsInteraction(interaction) {
+  if (interaction.isButton()) {
+    if (interaction.customId === TTS_STOP_CUSTOM_ID) {
+      return handleTtsStopButton(interaction);
+    }
+    if (interaction.customId === TTS_VOICE_SEARCH_ID) {
+      return handleTtsVoiceSearchButton(interaction);
+    }
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId === TTS_VOICE_MODAL_ID) {
+    return handleTtsVoiceModal(interaction);
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId === TTS_VOICE_SELECT_ID) {
+    return handleTtsVoiceSelect(interaction);
+  }
+
+  return false;
 }
 
 async function executeTtsJoin(interaction) {
@@ -245,6 +403,15 @@ async function executeTtsJoin(interaction) {
     await interaction.reply({
       flags: MessageFlags.Ephemeral,
       content: BOT_MESSAGES.tts.mustBeInVoice,
+    });
+    return;
+  }
+
+  const channel = interaction.channel;
+  if (!channel?.isTextBased?.()) {
+    await interaction.reply({
+      flags: MessageFlags.Ephemeral,
+      content: BOT_MESSAGES.tts.textChannelRequired,
     });
     return;
   }
@@ -301,47 +468,41 @@ async function executeTtsJoin(interaction) {
     }
   });
 
+  const statusMessage = await channel.send({
+    embeds: [activeTtsEmbed(voiceChannel)],
+    components: stopButtonRow(),
+  });
+
+  session.statusChannelId = channel.id;
+  session.statusMessageId = statusMessage.id;
+
   await interaction.reply({
     flags: MessageFlags.Ephemeral,
-    content: BOT_MESSAGES.tts.started(voiceChannel),
-    components: stopButtonRow(),
+    content: BOT_MESSAGES.tts.joinAck(voiceChannel),
   });
 }
 
 async function executeTtsIdioma(interaction) {
-  const personaId = interaction.options.getString("agentedevoz", true);
-  const persona = personaById.get(personaId);
-
-  if (!persona) {
-    await interaction.reply({
-      flags: MessageFlags.Ephemeral,
-      content: BOT_MESSAGES.tts.voiceNotFound,
-    });
-    return;
-  }
-
-  if (!mongoConfigOk()) {
-    await interaction.reply({
-      flags: MessageFlags.Ephemeral,
-      content: BOT_MESSAGES.tts.mongoMissing,
-    });
-    return;
-  }
-
   try {
-    await saveUserVoicePersona(interaction.user.id, personaId);
+    await ensureEdgeVoicesLoaded();
   } catch (err) {
-    console.error("[tts] mongo save:", err);
+    console.error("[tts] voces:", err);
     await interaction.reply({
       flags: MessageFlags.Ephemeral,
-      content: BOT_MESSAGES.tts.voiceSaveError,
+      content: BOT_MESSAGES.tts.voicesLoadError,
     });
     return;
   }
 
   await interaction.reply({
     flags: MessageFlags.Ephemeral,
-    content: BOT_MESSAGES.tts.voiceSaved(persona.name),
+    embeds: [
+      new EmbedBuilder()
+        .setColor(Colors.Blurple)
+        .setTitle(BOT_MESSAGES.tts.voicePickerIntroTitle)
+        .setDescription(BOT_MESSAGES.tts.voicePickerIntroBody),
+    ],
+    components: voiceSearchButtonRow(),
   });
 }
 
@@ -358,19 +519,7 @@ export const ttsCommand = {
     .addSubcommand((sub) =>
       sub
         .setName("idioma")
-        .setDescription("Elige tu agente de voz (no une al bot al canal).")
-        .addStringOption((option) =>
-          option
-            .setName("agentedevoz")
-            .setDescription("Persona / voz para leerte en TTS")
-            .setRequired(true)
-            .addChoices(
-              ...TTS_VOICE_PERSONAS.map((p) => ({
-                name: p.name,
-                value: p.id,
-              })),
-            ),
-        ),
+        .setDescription("Elige tu agente de voz (no une al bot al canal)."),
     ),
 
   async execute(interaction) {

@@ -28,6 +28,7 @@ import {
   registerTtsMessageHandler,
   ttsCommand,
 } from "./commands/tts.js";
+import { preloadEdgeVoices } from "./lib/edgeVoices.js";
 import { verifyCommand } from "./commands/verify.js";
 
 const token = process.env.DISCORD_TOKEN;
@@ -97,6 +98,13 @@ registerTtsMessageHandler(client);
 client.once(Events.ClientReady, async (readyClient) => {
   console.log(`Conectado como ${readyClient.user.tag}`);
   await verifyMongoOnStartup();
+
+  try {
+    const voiceCount = await preloadEdgeVoices();
+    console.log(`[tts] ${voiceCount} voces Edge cargadas.`);
+  } catch (err) {
+    console.error("[tts] No se pudieron precargar voces Edge:", err);
+  }
 
   const guildIdConfigured = typeof GUILD_ID === "string" && GUILD_ID.trim() !== "";
 
