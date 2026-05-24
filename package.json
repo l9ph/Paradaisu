@@ -2,7 +2,7 @@
   "name": "paradaisu-discord-bot",
   "version": "1.0.0",
   "private": true,
-  "description": "Bot de Discord con /verify (roles Ally, Ally Leader, Paradaisu)",
+  "description": "Bot de Discord Paradaisu",
   "type": "module",
   "main": "index.js",
   "scripts": {
@@ -19,7 +19,9 @@
     "google-tts-api": "^2.0.2",
     "mongodb": "^7.1.1",
     "opusscript": "^0.0.8",
-    "play-dl": "^1.9.7",
-    "prism-media": "^1.3.5"
+    "play-dl": "^1.9.7"
+  },
+  "optionalDependencies": {
+    "@discordjs/opus": "^0.10.0"
   }
 }
