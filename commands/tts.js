@@ -44,7 +44,7 @@ const TTS_VOICE_SELECT_ID = "tts:voice-select";
 const TTS_VOICES_COLLECTION = "tts_voices";
 const MAX_READ_LENGTH = 500;
 
-/** @type {Map<string, { guildId: string, listenChannelIds: Set<string>, voiceChannelId: string, hostUserId: string, statusChannelId?: string, statusMessageId?: string, connection: import('@discordjs/voice').VoiceConnection, player: import('@discordjs/voice').AudioPlayer, queue: { text: string, userId: string }[], processing: boolean }>} */
+/** @type {Map<string, { guildId: string, listenChannelIds: Set<string>, voiceChannelId: string, hostUserId: string, statusChannelId?: string, statusMessageId?: string, connection: import('@discordjs/voice').VoiceConnection, player: import('@discordjs/voice').AudioPlayer, queue: { userId: string, displayName: string, content: string }[], processing: boolean }>} */
 const ttsSessions = new Map();
 
 /** @type {Map<string, string>} userId → Edge voice name */
@@ -193,16 +193,35 @@ async function speakText(session, text, userId) {
   await playOnPlayer(session.player, resource);
 }
 
+function appendToQueueItem(item, spokenContent) {
+  item.content = `${item.content}. ${spokenContent}`.trim();
+}
+
+/** Une mensajes seguidos del mismo usuario en un solo bloque de cola. */
+function pullNextQueueItem(session) {
+  const first = session.queue.shift();
+  if (!first?.content) return null;
+
+  while (session.queue[0]?.userId === first.userId) {
+    const next = session.queue.shift();
+    if (next?.content) appendToQueueItem(first, next.content);
+  }
+
+  return first;
+}
+
 async function processTtsQueue(session) {
   if (session.processing) return;
   session.processing = true;
 
   while (session.queue.length > 0) {
-    const item = session.queue.shift();
-    if (!item?.text) continue;
+    const item = pullNextQueueItem(session);
+    if (!item?.content) continue;
+
+    const line = BOT_MESSAGES.tts.readLine(item.displayName, item.content);
 
     try {
-      await speakText(session, item.text, item.userId);
+      await speakText(session, line.slice(0, MAX_READ_LENGTH), item.userId);
     } catch (err) {
       console.error("[tts]", err);
     }
@@ -211,8 +230,15 @@ async function processTtsQueue(session) {
   session.processing = false;
 }
 
-function enqueueTts(session, text, userId) {
-  session.queue.push({ text, userId });
+function enqueueTts(session, displayName, spokenContent, userId) {
+  const last = session.queue.at(-1);
+  if (last?.userId === userId) {
+    appendToQueueItem(last, spokenContent);
+    void processTtsQueue(session);
+    return;
+  }
+
+  session.queue.push({ userId, displayName, content: spokenContent });
   void processTtsQueue(session);
 }
 
@@ -224,6 +250,19 @@ function stopTtsSession(guildId) {
   session.queue.length = 0;
   session.connection.destroy();
   return session;
+}
+
+export function stopTtsForGuild(guildId) {
+  return stopTtsSession(guildId);
+}
+
+async function stopActiveMusic(guildId) {
+  try {
+    const { stopMusicForGuild } = await import("./music.js");
+    stopMusicForGuild(guildId);
+  } catch (err) {
+    console.error("[tts] stop music:", err);
+  }
 }
 
 function shouldReadMessage(message, session, member) {
@@ -252,8 +291,7 @@ async function handleTtsChatMessage(message) {
   const spokenContent = prepareTextForSpeech(content);
   if (!spokenContent) return;
 
-  const line = BOT_MESSAGES.tts.readLine(displayName, spokenContent);
-  enqueueTts(session, line.slice(0, MAX_READ_LENGTH), message.author.id);
+  enqueueTts(session, displayName, spokenContent, message.author.id);
 }
 
 export function registerTtsMessageHandler(client) {
@@ -418,6 +456,7 @@ async function executeTtsJoin(interaction) {
 
   const guildId = interaction.guild.id;
   stopTtsSession(guildId);
+  await stopActiveMusic(guildId);
 
   const connection = joinVoiceChannel({
     guildId,
