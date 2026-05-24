@@ -57,8 +57,8 @@ export const BOT_MESSAGES = {
     textChannelRequired: "Usa /tts en el canal de texto que quieres que se lea.",
     generateError: "No pude generar el audio para ese mensaje.",
     playError: "No pude conectarme al canal de voz.",
-    started: (textChannel, voiceChannel) =>
-      `TTS activo. Leo mensajes en ${textChannel} de quienes estén en **${voiceChannel.name}**. Pulsa **Detener TTS** para parar.`,
+    started: (voiceChannel) =>
+      `TTS activo en **${voiceChannel.name}**. Escribe en el chat de ese canal de voz y lo leeré en voz.`,
     stopped: "TTS desactivado. Salí del canal de voz.",
     notActive: "No hay TTS activo en este servidor.",
     stopOnlyHost: "Solo quien activó /tts puede detenerlo.",

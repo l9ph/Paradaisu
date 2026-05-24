@@ -1,3 +1,4 @@
+import { Readable } from "node:stream";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -10,21 +11,21 @@ import {
 import {
   AudioPlayerStatus,
   NoSubscriberBehavior,
+  StreamType,
   VoiceConnectionStatus,
   createAudioPlayer,
   createAudioResource,
   entersState,
-  getVoiceConnection,
   joinVoiceChannel,
 } from "@discordjs/voice";
 import ffmpegStatic from "ffmpeg-static";
-import { getAllAudioUrls } from "google-tts-api";
+import { getAllAudioBase64 } from "google-tts-api";
 import { BOT_MESSAGES } from "../messages.js";
 
 const TTS_STOP_CUSTOM_ID = "tts:stop";
 const MAX_READ_LENGTH = 500;
 
-/** @type {Map<string, { guildId: string, textChannelId: string, voiceChannelId: string, hostUserId: string, lang: string, connection: import('@discordjs/voice').VoiceConnection, player: import('@discordjs/voice').AudioPlayer, queue: string[], processing: boolean, interaction: import('discord.js').ChatInputCommandInteraction }>} */
+/** @type {Map<string, { guildId: string, listenChannelIds: Set<string>, voiceChannelId: string, hostUserId: string, lang: string, connection: import('@discordjs/voice').VoiceConnection, player: import('@discordjs/voice').AudioPlayer, queue: string[], processing: boolean }>} */
 const ttsSessions = new Map();
 
 let ttsHandlerRegistered = false;
@@ -33,36 +34,24 @@ if (ffmpegStatic) {
   process.env.FFMPEG_PATH = ffmpegStatic;
 }
 
-function playOnPlayer(player, resource) {
-  return new Promise((resolve, reject) => {
-    const onIdle = () => {
-      cleanup();
-      resolve();
-    };
-    const onError = (err) => {
-      cleanup();
-      reject(err);
-    };
-    const cleanup = () => {
-      player.off(AudioPlayerStatus.Idle, onIdle);
-      player.off("error", onError);
-    };
-
-    player.on(AudioPlayerStatus.Idle, onIdle);
-    player.on("error", onError);
-    player.play(resource);
-  });
+async function playOnPlayer(player, resource) {
+  player.play(resource);
+  await entersState(player, AudioPlayerStatus.Playing, 10_000);
+  await entersState(player, AudioPlayerStatus.Idle, 120_000);
 }
 
 async function speakText(session, text) {
-  const parts = getAllAudioUrls(text, {
+  const parts = await getAllAudioBase64(text, {
     lang: session.lang,
     slow: false,
-    host: "https://translate.google.com",
   });
 
   for (const part of parts) {
-    const resource = createAudioResource(part.url, { inlineVolume: true });
+    const stream = Readable.from(Buffer.from(part.base64, "base64"));
+    const resource = createAudioResource(stream, {
+      inputType: StreamType.Arbitrary,
+      inlineVolume: true,
+    });
     await playOnPlayer(session.player, resource);
   }
 }
@@ -111,22 +100,28 @@ function stopButtonRow() {
   ];
 }
 
+function shouldReadMessage(message, session, member) {
+  if (!session.listenChannelIds.has(message.channelId)) return false;
+  if (message.channelId === session.voiceChannelId) return true;
+  return member?.voice?.channelId === session.voiceChannelId;
+}
+
 async function handleTtsChatMessage(message) {
   if (!message.guild || message.author.bot) return;
 
   const session = ttsSessions.get(message.guild.id);
   if (!session) return;
-  if (message.channelId !== session.textChannelId) return;
 
   const content = message.content?.trim();
   if (!content || content.startsWith("/")) return;
 
   const member =
     message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
-  if (member?.voice?.channelId !== session.voiceChannelId) return;
+
+  if (!shouldReadMessage(message, session, member)) return;
 
   const displayName =
-    member.displayName ?? message.author.displayName ?? message.author.username;
+    member?.displayName ?? message.author.displayName ?? message.author.username;
 
   const line = BOT_MESSAGES.tts.readLine(displayName, content);
   enqueueTts(session, line.slice(0, MAX_READ_LENGTH));
@@ -173,7 +168,7 @@ export async function handleTtsInteraction(interaction) {
 export const ttsCommand = {
   data: new SlashCommandBuilder()
     .setName("tts")
-    .setDescription("Entra a tu voz y lee mensajes de este canal de texto.")
+    .setDescription("Entra a tu voz y lee mensajes del chat del canal de voz.")
     .setDMPermission(false)
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addStringOption((option) =>
@@ -207,15 +202,6 @@ export const ttsCommand = {
       return;
     }
 
-    const channel = interaction.channel;
-    if (!channel?.isTextBased?.() || channel.isDMBased()) {
-      await interaction.reply({
-        flags: MessageFlags.Ephemeral,
-        content: BOT_MESSAGES.tts.textChannelRequired,
-      });
-      return;
-    }
-
     const lang = interaction.options.getString("idioma") ?? "es";
     const guildId = interaction.guild.id;
 
@@ -225,13 +211,17 @@ export const ttsCommand = {
       guildId,
       channelId: voiceChannel.id,
       adapterCreator: interaction.guild.voiceAdapterCreator,
-      selfDeaf: true,
+      selfDeaf: false,
     });
 
     const player = createAudioPlayer({
       behaviors: { noSubscriber: NoSubscriberBehavior.Play },
     });
     connection.subscribe(player);
+
+    player.on("error", (err) => {
+      console.error("[tts] player", err);
+    });
 
     try {
       await entersState(connection, VoiceConnectionStatus.Ready, 20_000);
@@ -245,9 +235,11 @@ export const ttsCommand = {
       return;
     }
 
+    const listenChannelIds = new Set([voiceChannel.id, interaction.channelId]);
+
     const session = {
       guildId,
-      textChannelId: interaction.channelId,
+      listenChannelIds,
       voiceChannelId: voiceChannel.id,
       hostUserId: interaction.user.id,
       lang,
@@ -255,7 +247,6 @@ export const ttsCommand = {
       player,
       queue: [],
       processing: false,
-      interaction,
     };
 
     ttsSessions.set(guildId, session);
@@ -268,7 +259,7 @@ export const ttsCommand = {
 
     await interaction.reply({
       flags: MessageFlags.Ephemeral,
-      content: BOT_MESSAGES.tts.started(channel, voiceChannel),
+      content: BOT_MESSAGES.tts.started(voiceChannel),
       components: stopButtonRow(),
     });
   },
