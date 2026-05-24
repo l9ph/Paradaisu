@@ -61,7 +61,9 @@ async function verifyMongoOnStartup() {
   const uri = process.env.MONGODB_URI?.trim();
   const dbName = process.env.MONGODB_DB?.trim() || "paradaisu";
   if (!uri) {
-    console.warn("[mongo] MONGODB_URI no está configurado. /ally no funcionará.");
+    console.warn(
+      "[mongo] MONGODB_URI no está configurado. /ally y /tts idioma no funcionarán.",
+    );
     return;
   }
 
