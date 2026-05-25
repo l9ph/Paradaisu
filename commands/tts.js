@@ -44,8 +44,23 @@ const TTS_VOICE_SELECT_ID = "tts:voice-select";
 const TTS_VOICES_COLLECTION = "tts_voices";
 const MAX_READ_LENGTH = 500;
 
-/** @type {Map<string, { guildId: string, listenChannelIds: Set<string>, voiceChannelId: string, hostUserId: string, statusChannelId?: string, statusMessageId?: string, connection: import('@discordjs/voice').VoiceConnection, player: import('@discordjs/voice').AudioPlayer, queue: { userId: string, displayName: string, content: string }[], processing: boolean }>} */
+const URL_IN_TEXT_REGEX =
+  /https?:\/\/[^\s<>]+|www\.[^\s<>]+|discord\.gg\/[^\s<>]+|discord\.com\/invite\/[^\s<>]+/i;
+
+/** @type {Map<string, { guildId: string, listenChannelIds: Set<string>, voiceChannelId: string, hostUserId: string, statusChannelId?: string, statusMessageId?: string, connection: import('@discordjs/voice').VoiceConnection, player: import('@discordjs/voice').AudioPlayer, queue: { userId: string, displayName: string, content: string, isLink?: boolean }[], processing: boolean }>} */
 const ttsSessions = new Map();
+
+function messageHasLink(message, content) {
+  if (URL_IN_TEXT_REGEX.test(content)) return true;
+
+  for (const embed of message.embeds) {
+    if (embed.url || embed.video?.url || embed.image?.url || embed.thumbnail?.url) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 /** @type {Map<string, string>} userId → Edge voice name */
 const voiceCache = new Map();
@@ -200,11 +215,16 @@ function appendToQueueItem(item, spokenContent) {
 /** Une mensajes seguidos del mismo usuario en un solo bloque de cola. */
 function pullNextQueueItem(session) {
   const first = session.queue.shift();
-  if (!first?.content) return null;
+  if (!first) return null;
 
   while (session.queue[0]?.userId === first.userId) {
     const next = session.queue.shift();
-    if (next?.content) appendToQueueItem(first, next.content);
+    if (!next) break;
+    if (first.isLink || next.isLink) {
+      session.queue.unshift(next);
+      break;
+    }
+    if (next.content) appendToQueueItem(first, next.content);
   }
 
   return first;
@@ -216,9 +236,12 @@ async function processTtsQueue(session) {
 
   while (session.queue.length > 0) {
     const item = pullNextQueueItem(session);
-    if (!item?.content) continue;
+    if (!item) continue;
+    if (!item.isLink && !item.content) continue;
 
-    const line = BOT_MESSAGES.tts.readLine(item.displayName, item.content);
+    const line = item.isLink
+      ? BOT_MESSAGES.tts.readLinkLine(item.displayName)
+      : BOT_MESSAGES.tts.readLine(item.displayName, item.content);
 
     try {
       await speakText(session, line.slice(0, MAX_READ_LENGTH), item.userId);
@@ -230,15 +253,26 @@ async function processTtsQueue(session) {
   session.processing = false;
 }
 
-function enqueueTts(session, displayName, spokenContent, userId) {
+function enqueueTts(session, displayName, spokenContent, userId, isLink = false) {
   const last = session.queue.at(-1);
-  if (last?.userId === userId) {
+
+  if (last?.userId === userId && isLink && last.isLink) {
+    void processTtsQueue(session);
+    return;
+  }
+
+  if (last?.userId === userId && !isLink && !last.isLink) {
     appendToQueueItem(last, spokenContent);
     void processTtsQueue(session);
     return;
   }
 
-  session.queue.push({ userId, displayName, content: spokenContent });
+  session.queue.push({
+    userId,
+    displayName,
+    content: isLink ? "" : spokenContent,
+    isLink,
+  });
   void processTtsQueue(session);
 }
 
@@ -264,8 +298,8 @@ async function handleTtsChatMessage(message) {
   const session = ttsSessions.get(message.guild.id);
   if (!session) return;
 
-  const content = message.content?.trim();
-  if (!content || content.startsWith("/")) return;
+  const content = message.content?.trim() ?? "";
+  if (content.startsWith("/")) return;
 
   const member =
     message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
@@ -274,6 +308,13 @@ async function handleTtsChatMessage(message) {
 
   const displayName =
     member?.displayName ?? message.author.displayName ?? message.author.username;
+
+  if (messageHasLink(message, content)) {
+    enqueueTts(session, displayName, "", message.author.id, true);
+    return;
+  }
+
+  if (!content) return;
 
   const spokenContent = prepareTextForSpeech(content);
   if (!spokenContent) return;

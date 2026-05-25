@@ -65,6 +65,7 @@ export const BOT_MESSAGES = {
     notActive: "No hay TTS activo en este servidor.",
     stopButton: "Sacar al bot",
     readLine: (displayName, text) => `${displayName} dijo ${text}`,
+    readLinkLine: (displayName) => `${displayName} envió un link`,
     mongoMissing:
       "Falta configurar `MONGODB_URI` en `.env` para guardar tu agente de voz.",
     voicePickerIntroTitle: "Elegir voz TTS",
