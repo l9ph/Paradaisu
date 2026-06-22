@@ -114,11 +114,26 @@ client.once(Events.ClientReady, async (readyClient) => {
       "Comandos globales limpiados (solo se usarán los del servidor en GUILD_ID).",
     );
 
+    console.log(
+      `[deploy] Bot: ${readyClient.user.tag} (${readyClient.user.id}). ` +
+        `Comandos a registrar: ${slashCommands.length} -> ${slashCommands
+          .map((c) => c.name)
+          .join(", ")}`,
+    );
+
+    const inGuilds = await readyClient.guilds.fetch();
+    console.log(
+      `[deploy] El bot está en ${inGuilds.size} server(s): ${[...inGuilds.values()]
+        .map((g) => `${g.name} (${g.id})`)
+        .join(" | ")}`,
+    );
+
     try {
       const guild = await readyClient.guilds.fetch(GUILD_ID.trim());
-      await guild.commands.set(slashCommands);
+      const registered = await guild.commands.set(slashCommands);
       console.log(
-        `Slash commands sincronizados (guild, instantáneo): ${guild.name} (${GUILD_ID.trim()})`,
+        `Slash commands sincronizados (guild, instantáneo): ${guild.name} (${GUILD_ID.trim()}). ` +
+          `Discord confirmó ${registered.size} comandos.`,
       );
     } catch (err) {
       console.error(
