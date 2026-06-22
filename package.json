@@ -2,7 +2,7 @@
   "name": "paradaisu-discord-bot",
   "version": "1.0.0",
   "private": true,
-  "description": "Bot de Discord Paradaisu",
+  "description": "Bot de Discord Martyrium",
   "type": "module",
   "main": "index.js",
   "scripts": {

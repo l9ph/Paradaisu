@@ -14,10 +14,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from "discord.js";
-import {
-  DEFAULT_EMBED_BANNER_URL,
-  userAvatarThumbnailUrl,
-} from "../embedDefaults.js";
+import { userAvatarThumbnailUrl } from "../embedDefaults.js";
 import { BOT_MESSAGES } from "../messages.js";
 
 const TICKET_STAFF_ROLE_IDS = ["1450309317889884270"];
@@ -245,8 +242,7 @@ export const ticketCommand = {
       .setTitle("Tryout")
       .setDescription(
         "Genera aquí tu ticket para TryOut y espera respuesta.\n\nElige entre estas opciones",
-      )
-      .setImage(DEFAULT_EMBED_BANNER_URL);
+      );
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()

@@ -1,5 +1,5 @@
 import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
-import { BOT_MESSAGES } from "../messages.js";
+import { BOT_MESSAGES, GUILD_NAME } from "../messages.js";
 
 const VERIFY_ROLE_IDS = {
   ally: [
@@ -25,7 +25,7 @@ const VERIFY_ROLE_IDS = {
 const verifyVariantLabels = {
   ally: "Ally",
   allyleader: "Ally Leader",
-  paradaisu: "Miembro de Paradaisu",
+  paradaisu: `Miembro de ${GUILD_NAME}`,
 };
 
 function roleIdsForTipo(tipo) {
@@ -47,7 +47,7 @@ function verifyStaffMessage(target, tipo, sobre) {
       `Se rechazó la petición de **${target.tag}**.\n` +
       `• Tipo: Denegado\n` +
       `• Petición: ${rechazoLabel}\n` +
-      `— Paradaisu`
+      `— ${GUILD_NAME}`
     );
   }
 
@@ -56,18 +56,18 @@ function verifyStaffMessage(target, tipo, sobre) {
     `**Verificación**\n` +
     `Se verificó a **${target.tag}**.\n` +
     `• Tipo: ${label}\n` +
-    `— Paradaisu`
+    `— ${GUILD_NAME}`
   );
 }
 
 function verifyDmMessage(tipo, sobre) {
   if (tipo === "denegado") {
     const rechazoLabel = verifyVariantLabels[sobre];
-    return `Tu petición como **${rechazoLabel}** fue rechazada.\n— Paradaisu`;
+    return `Tu petición como **${rechazoLabel}** fue rechazada.\n— ${GUILD_NAME}`;
   }
 
   const label = verifyVariantLabels[tipo];
-  return `Has sido verificado en **Paradaisu**, ahora eres **${label}**.\n— Paradaisu`;
+  return `Has sido verificado en **${GUILD_NAME}**, ahora eres **${label}**.\n— ${GUILD_NAME}`;
 }
 
 export const verifyCommand = {
@@ -91,7 +91,7 @@ export const verifyCommand = {
         .addChoices(
           { name: "Ally", value: "ally" },
           { name: "Ally Leader", value: "allyleader" },
-          { name: "Paradaisu", value: "paradaisu" },
+          { name: GUILD_NAME, value: "paradaisu" },
           { name: "Denegado", value: "denegado" },
         ),
     )
@@ -105,7 +105,7 @@ export const verifyCommand = {
         .addChoices(
           { name: "Ally", value: "ally" },
           { name: "Ally Leader", value: "allyleader" },
-          { name: "Paradaisu", value: "paradaisu" },
+          { name: GUILD_NAME, value: "paradaisu" },
         ),
     ),
 
@@ -172,7 +172,7 @@ export const verifyCommand = {
       if (tipo === "denegado" && !sobre) {
         await interaction.editReply({
           content:
-            "Si el tipo es **Denegado**, debes elegir **sobre** (Ally, Ally Leader o Paradaisu): es la petición que se rechaza.",
+            `Si el tipo es **Denegado**, debes elegir **sobre** (Ally, Ally Leader o ${GUILD_NAME}): es la petición que se rechaza.`,
         });
         return;
       }

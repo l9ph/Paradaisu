@@ -9,16 +9,19 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from "discord.js";
-import { BOT_MESSAGES } from "../messages.js";
+import { BOT_MESSAGES, GUILD_NAME } from "../messages.js";
 
 const ANUNCIO_ROLE_ID = "1450312932184424539";
 const ANUNCIO_COLOR = 2326507;
-const ANUNCIO_THUMB_URL =
-  "https://media.discordapp.net/attachments/588518991551528960/1489377590916677802/5bece49ed04c92f29e2eafc0fc42dfd1.png?ex=69d03278&is=69cee0f8&hm=8725378348ace84649692769e06dd1235ee891b05c52e0a8bfbeaf58d2c60a62&=&format=webp&quality=lossless";
 
 const MODAL_CUSTOM_ID = "anuncio:modal";
 const INPUT_TITLE = "anuncio_titulo";
 const INPUT_DESCRIPTION = "anuncio_descripcion";
+const INPUT_IMAGE = "anuncio_img";
+
+function isValidImageUrl(url) {
+  return /^https?:\/\/[^\s<>]+$/i.test(url);
+}
 
 function buildAnuncioModal() {
   return new ModalBuilder()
@@ -42,6 +45,14 @@ function buildAnuncioModal() {
           .setMinLength(1)
           .setMaxLength(4000)
           .setRequired(true),
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId(INPUT_IMAGE)
+          .setLabel("Imagen (URL, opcional)")
+          .setStyle(TextInputStyle.Short)
+          .setMaxLength(1024)
+          .setRequired(false),
       ),
     );
 }
@@ -122,6 +133,7 @@ export async function handleAnuncioInteraction(interaction) {
   const titulo = interaction.fields.getTextInputValue(INPUT_TITLE)?.trim() ?? "";
   const descripcion =
     interaction.fields.getTextInputValue(INPUT_DESCRIPTION)?.trim() ?? "";
+  const imagen = interaction.fields.getTextInputValue(INPUT_IMAGE)?.trim() ?? "";
 
   if (!titulo || !descripcion) {
     await interaction.reply({
@@ -153,11 +165,11 @@ export async function handleAnuncioInteraction(interaction) {
     .setColor(ANUNCIO_COLOR)
     .setTitle(embedTitle)
     .setDescription(embedDescription)
-    .setThumbnail(ANUNCIO_THUMB_URL)
-    .setFooter({
-      text: BOT_MESSAGES.anuncio.footer,
-      iconURL: ANUNCIO_THUMB_URL,
-    });
+    .setFooter({ text: GUILD_NAME });
+
+  if (imagen && isValidImageUrl(imagen)) {
+    embed.setImage(imagen);
+  }
 
   try {
     await channel.send({

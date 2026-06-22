@@ -1,3 +1,5 @@
+export const GUILD_NAME = "Martyrium";
+
 export const BOT_MESSAGES = {
   common: {
     serverOnly: "Este comando solo se puede usar en un servidor.",
@@ -48,8 +50,8 @@ export const BOT_MESSAGES = {
       "No tengo permiso para ver el canal, enviar mensajes o insertar embeds aquí.",
     sent: "Anuncio publicado.",
     sendError: "No se pudo enviar el anuncio. Revisa permisos del bot y del canal.",
-    modalTitle: "Anuncio Paradaisu",
-    footer: "Paradaisu",
+    modalTitle: `Anuncio ${GUILD_NAME}`,
+    footer: GUILD_NAME,
   },
 
   tts: {

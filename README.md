@@ -1,3 +1,3 @@
-# Paradaisu
+# Martyrium
 
-Discord bot - Paradaisu.
+Discord bot - Martyrium.

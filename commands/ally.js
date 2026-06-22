@@ -11,10 +11,8 @@ import {
   TextInputStyle,
 } from "discord.js";
 import { MongoClient, ObjectId } from "mongodb";
-import { BOT_MESSAGES } from "../messages.js";
+import { BOT_MESSAGES, GUILD_NAME } from "../messages.js";
 
-const ALLY_EMBED_IMAGE_URL =
-  "https://images-ext-1.discordapp.net/external/N_CetSKMoMcw0pTvrHDAT13TtTuakN3xfyqno2PvPZo/https/cdn.nekotina.com/guilds/1133248786773327994/03c2ccd0-8540-4382-86c4-22e3bfd5bf9d.jpg?format=webp";
 const ALLY_COLLECTION = "ally_links";
 const ALLY_META_COLLECTION = "ally_panel_meta";
 const modalCustomId = "ally:modal:add";
@@ -73,9 +71,8 @@ function allyEmbedForChannel(guildName, entries) {
 
   return new EmbedBuilder()
     .setColor(Colors.Blurple)
-    .setTitle("Paradaisu Allies")
+    .setTitle(`${GUILD_NAME} Allies`)
     .addFields(fields)
-    .setImage(ALLY_EMBED_IMAGE_URL)
     .setTimestamp();
 }
 
